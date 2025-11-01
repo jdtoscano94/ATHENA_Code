@@ -1,0 +1,12 @@
+{
+    "/users/jdtoscan/data/jdtoscan/LLM/Documents/codes/SciML/PINNs/Allen_Cahn.py": {
+        "analysis": {
+            "equation": "AllenCahn",
+            "dimensionality": "1D+t",
+            "optimizer_scheme": "Hybrid Adam+SSBroyden",
+            "problem_type": "forward",
+            "filename": "Allen_Cahn.py"
+        },
+        "chunks_created": 19
+    }
+}
