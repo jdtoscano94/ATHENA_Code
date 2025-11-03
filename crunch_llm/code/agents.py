@@ -4,13 +4,13 @@ from langchain.agents import AgentExecutor
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.agents import create_tool_calling_agent
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage,SystemMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
 from langchain_core.output_parsers import JsonOutputParser # Import the JSON parser
 from langchain_core.messages import BaseMessage # Needed for type hinting
-from typing import Dict, List 
+from typing import Dict, List ,Union, Any
 from langchain_core.documents import Document
 import chromadb
 from pathlib import Path # Import the Path object
@@ -293,8 +293,237 @@ class aRAGAgent:
             HumanMessage(content=user_question),
             AIMessage(content=ai_message),
         ])
-
         return result
+    def clear_history(self):
+        """Clears the agent's chat history."""
+        self.chat_history = []
+        # Access the verbose flag from the agent_executor
+        if self.agent_executor.verbose:
+            print("Chat history cleared.")
+
+    def get_history(self) -> list:
+        """Gets the agent's current chat history."""
+        return self.chat_history
+
+
+class aRAGAgent_multimodal:
+    def __init__(self, 
+                 db_path: str,
+                 model: str,
+                 embeddings_model: str ='bge-m3:567m',
+                 model_provider: str = 'ollama',
+                 embeddings_provider: str = 'ollama',
+                 collection_name='documents',
+                 system_prompt="You are a powerful AI assistant...",
+                 temperature=0, 
+                 verbose=False,
+                 k=5):
+        
+        # Store system prompt for later use
+        self.system_prompt = system_prompt
+        self.verbose = verbose
+        
+        # --- 1. Initialize Embeddings Model (Generalized) ---
+        embeddings = None
+        if embeddings_provider.lower() == 'ollama':
+            from langchain_community.embeddings import OllamaEmbeddings
+            embeddings = OllamaEmbeddings(model=embeddings_model)
+            
+        elif embeddings_provider.lower() == 'google':
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in .env file.")
+            from langchain_google_genai import GoogleGenerativeAIEmbeddings
+            embeddings = GoogleGenerativeAIEmbeddings(model=embeddings_model)
+            
+        elif embeddings_provider.lower() == 'openai':
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found in .env file.")
+            from langchain_openai import OpenAIEmbeddings
+            embeddings = OpenAIEmbeddings(model=embeddings_model)
+        else:
+            raise ValueError(f"Unknown embeddings_provider: '{embeddings_provider}'.")
+
+        
+        # --- 2. Initialize ChromaDB ---
+        client = chromadb.PersistentClient(path=db_path)
+        vector_store = Chroma(
+            client=client,
+            collection_name=collection_name,
+            embedding_function=embeddings
+        )
+        
+        # Store vector_store as instance variable for potential direct access
+        self.vector_store = vector_store
+        self.k = k
+        
+        # --- 3. Retrieval Tool ---     
+        @tool
+        def retrieve(query: str) -> str:
+            """Retrieve information related to a query from the local code database."""
+            if verbose:
+                print(f"--- Retrieving documents for query: '{query}' ---")
+            retrieved_docs = vector_store.similarity_search(query, k=k)
+            
+            if not retrieved_docs:
+                return "No relevant documents found in the database."
+
+            serialized = "\n\n".join(
+                (f"Source File: {doc.metadata.get('filename', 'N/A')}\n"
+                 f"Lines: {doc.metadata.get('lines', 'N/A')}\n"
+                 f"Content:\n---\n{doc.page_content}\n---")
+                for doc in retrieved_docs
+            )
+            return serialized
+
+        self.retrieve_tool = retrieve
+        
+        # --- 4. Initialize Main LLM (Generalized) ---
+        llm = None
+        if model_provider.lower() == 'ollama':
+            from langchain_community.chat_models import ChatOllama
+            llm = ChatOllama(model=model, temperature=temperature)
+            
+        elif model_provider.lower() == 'google':
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in .env file.")
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(model=model, temperature=temperature) 
+            
+        elif model_provider.lower() == 'openai':
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found in .env file.")
+            from langchain_openai import ChatOpenAI
+            llm = ChatOpenAI(model=model, temperature=temperature)
+        else:
+            raise ValueError(f"Unknown model_provider: '{model_provider}'.")
+
+        # Store LLM as instance variable for direct multimodal calls
+        self.llm = llm
+        
+        # --- 5. Create Agent for Text-Only Inputs ---
+        from langchain.agents import create_tool_calling_agent, AgentExecutor
+        from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+        
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ])
+        
+        tools = [retrieve]
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        
+        self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=verbose)
+        self.chat_history = []
+
+    def _is_multimodal_input(self, user_input: Union[str, list, Any]) -> bool:
+        """
+        Check if the input contains multimodal content (images).
+        """
+        if not isinstance(user_input, list):
+            return False
+        
+        # Check if any item in the list is an image
+        for item in user_input:
+            if isinstance(item, dict) and item.get("type") == "image_url":
+                return True
+        return False
+
+    def _build_message_history(self) -> list:
+        """
+        Build the full message history including system prompt.
+        """
+        messages = []
+        
+        # Add system message
+        if self.system_prompt:
+            messages.append(SystemMessage(content=self.system_prompt))
+        
+        # Add chat history
+        messages.extend(self.chat_history)
+        
+        return messages
+
+    def run(self, user_input: Union[str, list, Any]) -> dict:
+        """
+        Runs a single turn of the conversation.
+        
+        Automatically detects input type:
+        - Text-only: Uses agent executor with tool calling capability
+        - Multimodal (with images): Calls LLM directly (bypasses agent)
+        
+        Examples:
+        - Text: "Solve the Burgers equation"
+        - Multimodal: [
+            {"type": "text", "text": "Analyze this plot"},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}
+          ]
+        """
+        
+        is_multimodal = self._is_multimodal_input(user_input)
+        
+        if self.verbose:
+            print(f"DEBUG - Input type: {type(user_input)}")
+            print(f"DEBUG - Is multimodal: {is_multimodal}")
+            if isinstance(user_input, list):
+                print(f"DEBUG - Input list length: {len(user_input)}")
+        
+        if is_multimodal:
+            # --- MULTIMODAL PATH: Direct LLM invocation ---
+            if self.verbose:
+                print(">>> Using MULTIMODAL mode (direct LLM call)")
+            
+            # Build message history
+            messages = self._build_message_history()
+            
+            # Add current multimodal input as HumanMessage
+            messages.append(HumanMessage(content=user_input))
+            
+            # Invoke LLM directly
+            ai_response = self.llm.invoke(messages)
+            ai_message = ai_response.content
+            
+            # Update chat history
+            self.chat_history.extend([
+                HumanMessage(content=user_input),
+                AIMessage(content=ai_message),
+            ])
+            
+            return {
+                "input": user_input,
+                "output": ai_message,
+                "mode": "multimodal"
+            }
+        
+        else:
+            if self.verbose:
+                print(">>> Using TEXT-ONLY mode (agent with tools)")
+            
+            result = self.agent_executor.invoke({
+                "input": user_input,
+                "chat_history": self.chat_history
+            })
+
+            ai_message = result["output"]
+
+            self.chat_history.extend([
+                HumanMessage(content=user_input), 
+                AIMessage(content=ai_message),
+            ])
+
+            return result
+    
+    def clear_history(self):
+        """Clear the conversation history."""
+        self.chat_history = []
+        if self.verbose:
+            print("Chat history cleared.")
+    
+    def get_history(self) -> list:
+        """Get the current conversation history."""
+        return self.chat_history.copy()
+
 
 class memoryAgent:
     def __init__(self,

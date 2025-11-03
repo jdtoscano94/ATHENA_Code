@@ -1,6 +1,5 @@
+
 # ## Cell 1: Core Imports and Project Setup
-
-
 import os
 import sys
 import time
@@ -44,10 +43,8 @@ jax.config.update("jax_enable_x64", True)
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 os.environ["XLA_PYTHON_CLIENT_PREALLOCATE"]="false"
 
-
 # ## Cell 2: Hyperparameter Configuration (argparse)
 # 
-
 
 import argparse
 # Set up argument parser
@@ -59,7 +56,7 @@ parser.add_argument('--NI', type=int, default=512, help='Number of iterations')
 parser.add_argument('--NB', type=int, default=512, help='Batch size')
 parser.add_argument('--NC_TEST', type=int, default=100, help='Number of test samples')
 parser.add_argument('--SEED', type=int, default=9999, help='Random seed')
-parser.add_argument('--EPOCHS', type=int, default=20000, help='Number of training epochs')
+parser.add_argument('--EPOCHS', type=int, default=2500, help='Number of training epochs')
 parser.add_argument('--N_LAYERS', type=int, default=3, help='Number of layers in the network')
 parser.add_argument('--HIDDEN', type=int, default=30, help='Number of hidden units per layer')
 parser.add_argument('--FEATURES', type=int, default=1, help='Feature size')
@@ -125,7 +122,7 @@ k_samp_bfgs = args.k_samp
 c_samp_bfgs = args.c_samp
 Nchange = args.N_change  # Number of SSBroyden steps before resampling
 batch_size=args.batch_size 
-Nbfgs=100000 # Number of SSBroyden BFGs iterations
+Nbfgs=12500 # Number of SSBroyden BFGs iterations
 
 
 # random key
@@ -147,7 +144,7 @@ os.makedirs(args.Name, exist_ok=True)
 # ## Cell 3: Data Loading and Ground Truth Definition
 
 
-available_data_sets_path='/users/jdtoscan/data/jdtoscan/LLM/Documents/codes/Data/'
+available_data_sets_path='/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/codes/Data/'
 data = scipy.io.loadmat(available_data_sets_path+'allen_cahn.mat')
 print(data.keys())
 Exact = data['usol'].T
@@ -561,8 +558,6 @@ plt.show()
 
 # 
 # ## Cell 15: Preparation for Second-Order Optimization (SSBroyden)
-
-
 gamma = args.gamma_bfgs
 eta = 1-gamma
 initial_weights, unflatten_func = ravel_pytree(params)
@@ -576,8 +571,6 @@ X=np.hstack([tc.astype(jnp.float64),xc.astype(jnp.float64)])
 
 # 
 # ## Cell 16: Defining the Loss Functions for Second-Order Optimization
-
-
 @partial(jax.jit, static_argnums=(0,))
 def apply_model_2nd_Order(apply_fn, params, *train_data):
     t, x, ti, xi, ui = train_data
@@ -622,9 +615,6 @@ def loss_and_gradient(weights, N_arg, unflatten_func_arg, *train_data_tuple_arg)
 
 # 
 # ## Cell 17: The SSBroyden Optimization Step Function
-
-
-
 @partial(jax.jit, static_argnames=("apply_fn", "unflatten_func", "batch_size", "gamma", "eta", "k", "c", "static_options"))
 def SSBroyden_step(
     initial_weights, H0, key,
@@ -665,8 +655,6 @@ def SSBroyden_step(
 
 
 # ## Cell 18: Main SSBroyden Training Loop
-
-
 # Initialize the Hessian
 H0 = jnp.eye(len(initial_weights), dtype=jnp.float64)
 num_outer_iterations = Nbfgs // Nchange
@@ -722,74 +710,59 @@ u = apply_fn(current_params_for_eval, t, x)
 u = u.reshape(T.shape)
 
 
-it=-1
-print('Solution:')
-# --- 1. Find the global vmin and vmax across BOTH datasets ---
+fig, axes = plt.subplots(2, 3, figsize=(14, 6))
+ax_tl = axes[0, 0]
+ax_tl.plot(all_its, all_loss, label='Total Loss', color='blue')
+ax_tl.set_yscale('log')
+ax_tl.set_title('Total Loss History (Log Scale)')
+ax_tl.set_xlabel('Iterations')
+ax_tl.set_ylabel('Loss (log scale)')
+ax_tl.grid(True, which="both", ls="--")
+ax_tl.legend()
+ax_tm = axes[0, 1]
+ax_tm.plot(all_its, all_errors, label='Rel. L2 Error', color='green')
+ax_tm.set_yscale('log')
+ax_tm.set_title('Relative $L^2$ Error History (Log Scale)')
+ax_tm.set_xlabel('Iterations')
+ax_tm.set_ylabel('Rel. $L^2$ Error (log scale)')
+ax_tm.grid(True, which="both", ls="--")
+ax_tm.legend()
+ax_tr = axes[0, 2]
+print("Calculating PDE residuals for plotting...")
+res = PDE_residuals(current_params_for_eval, t, x, apply_fn)
+res_grid = jnp.abs(res.reshape(T.shape))
+print(f"Residuals calculated. Min: {res_grid.min()}, Max: {res_grid.max()}")
+res_log_norm = colors.LogNorm(vmin=res_grid.min()+1e-16, vmax=res_grid.max() + 1e-16)
+mesh_res = ax_tr.pcolormesh(T, X, res_grid, cmap='jet', norm=res_log_norm, shading='gouraud')
+fig.colorbar(mesh_res, ax=ax_tr)
+ax_tr.set_xlabel('t')
+ax_tr.set_ylabel('x')
+ax_tr.set_title('|PDE Residual| (Log Scale)')
 global_vmin = np.min([u, Exact0])
 global_vmax = np.max([u, Exact0])
-# --- 2. Create a shared array of contour levels ---
-num_levels = 500
-shared_levels = np.linspace(global_vmin, global_vmax, num_levels)
-# Plotting code
-fig = plt.figure(figsize=(10, 3))
-# --- Plot for Prediction (using the shared levels array) ---
-ax1 = fig.add_subplot(131)
-contour1 = ax1.contourf(T, X, u, cmap='jet', 
-                        levels=shared_levels) # 
-fig.colorbar(contour1, ax=ax1)
-ax1.set_xlabel('t')
-ax1.set_ylabel('x')
-ax1.set_title('Prediction')
-# --- Plot for Reference Solution (using the shared levels array) ---
-ax2 = fig.add_subplot(132)
-contour2 = ax2.contourf(T, X, Exact0, cmap='jet', 
-                        levels=shared_levels) #
-fig.colorbar(contour2, ax=ax2)
-ax2.set_xlabel('t')
-#ax2.set_ylabel('x')
-ax2.set_title('Reference')
-# --- Plot for Error (this part is separate and correct) ---
-ax3 = fig.add_subplot(133)
-error_data = np.abs(Exact0-u)
-log_norm = colors.LogNorm(vmin=1e-9, vmax=error_data.max())
-
-mesh3 = ax3.pcolormesh(T, X, error_data, 
-                       cmap='jet', 
-                       norm=log_norm,
-                       shading='gouraud')
-fig.colorbar(mesh3, ax=ax3)
-ax3.set_xlabel('t')
-ax3.set_title('Error')
-
+shared_levels = np.linspace(global_vmin, global_vmax, 500)
+ax_bl = axes[1, 0]
+contour1 = ax_bl.contourf(T, X, Exact0, cmap='jet', levels=shared_levels, extend='both')
+fig.colorbar(contour1, ax=ax_bl)
+ax_bl.set_xlabel('t')
+ax_bl.set_ylabel('x')
+ax_bl.set_title('Reference')
+ax_bm = axes[1, 1]
+contour2 = ax_bm.contourf(T, X, u, cmap='jet', levels=shared_levels, extend='both')
+fig.colorbar(contour2, ax=ax_bm)
+ax_bm.set_xlabel('t')
+ax_bm.set_title('Prediction')
+ax_br = axes[1, 2]
+error_data = np.abs(Exact0 - u)
+err_log_norm = colors.LogNorm(vmin=error_data.min()+1e-16, vmax=error_data.max() + 1e-16)
+mesh_err = ax_br.pcolormesh(T, X, error_data, cmap='jet', norm=err_log_norm, shading='gouraud')
+fig.colorbar(mesh_err, ax=ax_br)
+ax_br.set_xlabel('t')
+ax_br.set_title('Pointwise Error (Log Scale)')
 plt.tight_layout()
-plt.savefig('Errors_vRBA_SSBroyden.png',dpi=300)
+plt.savefig('summary_all.png', dpi=150) # 150 DPI is a good balance for token size
 plt.show()
-
-
-# Adjusting the plot to use a log scale for both loss and error
-
-plt.figure(figsize=(12, 6))
-
-# Plotting loss history with log scale
-plt.subplot(2, 2, 1)
-plt.plot(all_its, all_errors, label='Loss', color='blue')
-
-
-#plt.xscale('log')
-plt.yscale('log')
-plt.xlabel('Iterations')
-plt.ylabel('Relative $L^2$ Error (log scale)')
-plt.title('Error History (Log Scale)')
-plt.grid(True)
-plt.legend()
-# Show the plots
-plt.tight_layout()
-plt.savefig('Loss_SSBroyden.png')
-plt.show()
-
-
-
-print('Minimum achieved error:',np.nanmin(all_errors))
+print('Minimum achieved  RL2 error:',np.nanmin(all_errors))
 
 
 # ## Cell 20: Save Experiment Results to .mat File
@@ -809,5 +782,3 @@ results_dict = {
 }
 # Save dictionary as a .mat file
 scipy.io.savemat('Log_files_SSBroyden.mat', results_dict)
-
-

@@ -24,6 +24,22 @@ from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
+# Report
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib.enums import TA_LEFT
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Preformatted
+from reportlab.platypus import Image as ReportLabImage
+from reportlab.lib import utils as reportlab_utils
+
+# Encoding
+import base64
+import mimetypes
+import io  
+import PIL.Image
+
+
 current_file_dir = Path(__file__).parent 
 # Build the full path to the .env file in that *same directory*
 dotenv_path = current_file_dir / '.env'
@@ -297,6 +313,23 @@ def add_line_numbers_to_code(code_content: str, filename: str) -> str:
     return "\n".join(numbered_lines)
 
 
+def get_comment_char(language: str) -> str:
+    """
+    Returns the correct single-line comment character for a given language.
+    """
+    comment_styles = {
+        'python': '#',
+        'julia': '#',
+        'matlab': '%',
+        'c': '//',
+        'cpp': '//',
+        'fortran': '!'
+    }
+    # Default to '#' if language is unknown
+    return comment_styles.get(language.lower(), '#')
+
+
+
 def remove_all_comments(code_content: str, language: str) -> str:
     comment_patterns = {
         'python': [
@@ -444,15 +477,10 @@ def create_folder_and_save_code(
         # --- 1. Get details from the dictionary ---
         filename_no_ext = code_details.get('filename')
         description = code_details.get('description')
-        
-        # Language is now passed directly
         lang_lower = language.lower()
-
         if not filename_no_ext or not description:
             print(f"Error: 'filename' or 'description' missing from code_details dict.")
             return None, None, None
-
-        # --- 2. Define language-specific extensions and comment markers ---
         lang_map = {
             'julia': ('.jl', '#'),
             'python': ('.py', '#'),
@@ -464,18 +492,12 @@ def create_folder_and_save_code(
         
         extension, comment_char = lang_map.get(lang_lower, ('.txt', '#'))
         
-        # --- 3. Create the new timestamped directory ---
-        # Get the current timestamp (e.g., "2025_10_24_1338")
-        # We use %H%M (1338) instead of %H:%M (13:38) because colons are invalid in Windows folders
         timestamp = datetime.now().strftime("%Y_%m_%d_%H%M") 
         
-        # Combine timestamp and filename (e.g., "2025_10_24_1338_FisherKPP_Periodic")
         project_dir = f"{base_results_dir}/{filename_no_ext}/{timestamp}/"
         os.makedirs(project_dir, exist_ok=True)
         print(f"Created project directory: {project_dir}")
-
-        # --- 4. Define the final file path ---
-        # The filename *inside* the folder will just be the simple name (e.g., "FisherKPP_Periodic.jl")
+        
         final_filename = filename_no_ext + extension
         final_filepath = os.path.join(project_dir, final_filename)
 
@@ -559,10 +581,10 @@ def run_code(project_dir, final_filename, final_filepath):
     shell_script_path = "" # Initialize
     
     if code_language == 'julia':
-        shell_script_path = "/users/jdtoscan/data/jdtoscan/LLM/Documents/Scripts/run_julia.sh"
+        shell_script_path = "/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/Scripts/run_julia.sh"
         
     elif code_language == 'python':
-        shell_script_path = "/users/jdtoscan/data/jdtoscan/LLM/Documents/Scripts/run_python.sh"
+        shell_script_path = "/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/Scripts/run_python.sh"
     
     else:
         print(f"❌ Error: No run script defined for language '{code_language}'. Cannot run.")
@@ -676,3 +698,146 @@ def reconstruct_code_from_cells(cell_dict: Dict[str, str]) -> str:
     for key in sorted_cell_keys:
         reconstructed_parts.append(cell_dict[key])
     return "\n\n".join(reconstructed_parts)
+
+
+    # Create Report
+
+
+def create_consolidated_report_chronological(
+    project_dir: str, 
+    output_pdf_path: str = "consolidated_report_chronological.pdf"
+) -> tuple[bool, str | None]:
+    """
+    Creates a consolidated PDF report from all text and image files in a directory,
+    sorting them CHRONOLOGICALLY by modification time.
+
+    Returns:
+        (bool, str | None): A tuple of (success_status, path_to_pdf_or_None)
+    """
+    print(f"Attempting to create CHRONOLOGICAL consolidated report: {output_pdf_path}")
+
+    image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg')
+    text_extensions = ('.txt', '.log', '.out') 
+    
+    reportable_files = [] # This will store tuples of (mtime, full_path)
+    
+    if not os.path.isdir(project_dir):
+        print(f"Warning: Project directory not found at {project_dir}")
+        return False, None
+
+    # --- 1. Find all reportable files and get their modification time ---
+    for root, _, files in os.walk(project_dir):
+        for file in files:
+            if file.lower().endswith(image_extensions) or file.lower().endswith(text_extensions):
+                full_path = os.path.join(root, file)
+                try:
+                    # Get modification time
+                    mtime = os.path.getmtime(full_path)
+                    reportable_files.append((mtime, full_path))
+                except OSError as e:
+                    print(f"Warning: Could not get mtime for {full_path}. Skipping. Error: {e}")
+
+    if not reportable_files:
+        print("No reportable files (.png, .jpg, .txt, .log, .out) found.")
+        return False, None
+        
+    # --- 2. Sort files by modification time (the first element of the tuple) ---
+    reportable_files.sort(key=lambda x: x[0])
+    
+    print(f"Found {len(reportable_files)} reportable files. Building PDF in chronological order...")
+    
+    # --- 3. Setup PDF Document ---
+    full_output_path = os.path.join(project_dir, output_pdf_path)
+
+    doc = SimpleDocTemplate(full_output_path, pagesize=A4,
+                            rightMargin=inch, leftMargin=inch,
+                            topMargin=inch, bottomMargin=inch)
+    
+    styles = getSampleStyleSheet()
+    filename_style = styles['Heading3']
+    
+    pre_style = ParagraphStyle(
+        name='PreformattedText',
+        parent=styles['Code'], # Use 'Code' as a base
+        fontSize=8,            # Smaller font for logs
+        leading=10,            # Line spacing
+        alignment=TA_LEFT,
+        wordWrap='CJK',        # Handle long lines without spaces
+    )
+    
+    Story = [] # This is our list of PDF elements
+
+    # --- 4. Build the PDF Story (now in chronological order) ---
+    for mtime, file_path in reportable_files:
+        filename = os.path.basename(file_path)
+        
+        try:
+            p_filename = Paragraph(filename, filename_style)
+            Story.append(p_filename)
+            Story.append(Spacer(1, 0.15 * inch))
+
+            if file_path.lower().endswith(image_extensions):
+                img_reader = reportlab_utils.ImageReader(file_path)
+                iw, ih = img_reader.getSize()
+                if iw == 0:
+                     print(f"Warning: Image {filename} has width 0. Skipping.")
+                     continue
+                aspect = ih / float(iw)
+                new_height = (doc.width * aspect)
+                img = ReportLabImage(file_path, width=doc.width, height=new_height)
+                Story.append(img)
+
+            elif file_path.lower().endswith(text_extensions):
+                with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    text_content = f.read()
+                
+                pre = Preformatted(text_content, pre_style)
+                Story.append(pre)
+            
+            Story.append(Spacer(1, 0.5 * inch))
+
+        except Exception as e:
+            print(f"Warning: Could not add {filename} to PDF. Error: {e}")
+
+    # --- 5. Build (save) the PDF ---
+    try:
+        doc.build(Story)
+        print(f"✅ Successfully created chronological report at: {full_output_path}")
+        return True, full_output_path
+    except Exception as e:
+        print(f"Error building the final PDF: {e}")
+        return False, None
+
+
+def encode_image_to_data_url(filepath: str, max_width: int = 800) -> str:
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(f"File not found at {filepath}")
+        
+    mime_type, _ = mimetypes.guess_type(filepath)
+    if mime_type is None:
+        mime_type = "image/png"
+    
+    try:
+        img = PIL.Image.open(filepath)
+        
+        if img.width > max_width:
+            width_percent = (max_width / float(img.width))
+            new_height = int((float(img.height) * float(width_percent)))
+            img = img.resize((max_width, new_height), PIL.Image.LANCZOS)
+            print(f"DEBUG: Image resized to {max_width}x{new_height}")
+        buffer = io.BytesIO()
+        img_format = mime_type.split('/')[-1].upper()
+        if img_format == 'JPEG':
+            img = img.convert('RGB')
+        img.save(buffer, format=img_format)
+        image_bytes = buffer.getvalue()
+    except Exception as e:
+        print(f"Warning: Pillow processing failed ({e}). Falling back to original file.")
+        with open(filepath, "rb") as image_file:
+            image_bytes = image_file.read()
+    base64_string = base64.b64encode(image_bytes).decode('utf-8')
+
+    data_url = f"data:{mime_type};base64,{base64_string}"
+    return data_url
+
+
