@@ -1,54 +1,57 @@
 #!/bin/bash
 
 # --- Configuration ---
+# Using the specific paths from your environment
 JULIA_EXEC="/oscar/runtime/software/external/julia/1.11.1/bin/julia"
 PROJECT_ENV="/users/jdtoscan/data/jdtoscan/Learning_Julia"
 
-# --- Argument Handling ---
+# --- Safety ---
+# Exit immediately if a command exits with a non-zero status
+set -e
 
-# Check if a script path was provided as an argument
+# --- Argument Handling ---
 if [ -z "$1" ]; then
-    echo "Error: No Julia script path provided."
-    echo "Usage: $0 /path/to/your/script.jl"
+    echo "Error: No Julia script path provided." >&2
+    echo "Usage: $0 /path/to/script.jl /path/to/stderr.log" >&2
     exit 1
 fi
 
-# Set the script to run from the first argument
+if [ -z "$2" ]; then
+    echo "Error: No stderr log path provided." >&2
+    echo "Usage: $0 /path/to/script.jl /path/to/stderr.log" >&2
+    exit 1
+fi
+
 JULIA_SCRIPT="$1"
+STDERR_FILE="$2"
+SCRIPT_DIR=$(dirname "$JULIA_SCRIPT")
 
 # --- Pre-run Checks ---
-
-# Check if the Julia script exists
 if [ ! -f "$JULIA_SCRIPT" ]; then
-    echo "Error: Julia script not found at $JULIA_SCRIPT"
+    echo "Error: Julia script not found at $JULIA_SCRIPT" >&2
     exit 1
 fi
 
-# Check if the Julia executable exists
 if [ ! -x "$JULIA_EXEC" ]; then
-    echo "Error: Julia executable not found or not executable at $JULIA_EXEC"
+    echo "Error: Julia executable not found or not executable at $JULIA_EXEC" >&2
     exit 1
 fi
 
-# Check if the project environment directory exists
 if [ ! -d "$PROJECT_ENV" ]; then
-    echo "Error: Project environment directory not found at $PROJECT_ENV"
-elif [ ! -f "$PROJECT_ENV/Project.toml" ]; then
-    echo "Warning: Project directory found, but Project.toml is missing in $PROJECT_ENV"
+    echo "Error: Project environment directory not found at $PROJECT_ENV" >&2
+    exit 1
+fi
+
+# --- Change Directory ---
+# CRITICAL: Switch to the directory containing the script so relative paths work
+cd "$SCRIPT_DIR"
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to change directory to '$SCRIPT_DIR'." >&2
+    exit 1
 fi
 
 # --- Execution ---
-
-echo "Starting Julia script..."
-echo "  Executable: $JULIA_EXEC"
-echo "  Environment: $PROJECT_ENV"
-echo "  Script: $JULIA_SCRIPT"
-echo "-------------------------------------"
-
-# Run the Julia script.
-# The Python function 'run_shell_script' will capture stdout and stderr.
-"$JULIA_EXEC" --project="$PROJECT_ENV" "$JULIA_SCRIPT"
-
-# Python will log the exit code and output.
-echo "-------------------------------------"
-echo "Julia script finished."
+# 1. Use the configured Project Environment
+# 2. Run the script
+# 3. Redirect stderr (2>) to the log file provided by Python
+"$JULIA_EXEC" --project="$PROJECT_ENV" "$JULIA_SCRIPT" 2> "$STDERR_FILE"

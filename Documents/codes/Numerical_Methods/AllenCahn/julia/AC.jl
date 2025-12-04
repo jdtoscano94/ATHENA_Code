@@ -86,11 +86,32 @@ p = heatmap(t_save, x_plot, usol_plot,
 )
 savefig(p, joinpath(@__DIR__, "allen_cahn_solution.png"))
 
+
+
 # ----- Save Data to File ----------------------------------------
-# Transpose solution to a (time, space) format for consistency
-usol_save = usol_plot'
-matwrite(joinpath(@__DIR__, "allen_cahn_HR.mat"), Dict(
-    "t" => collect(t_save),
-    "x" => collect(x_plot),
-    "usol" => usol_save
-))
+# Prepare data as regular Arrays (not ranges or views)
+usol_save = Float64.(real.(usol_plot'))
+t_array = collect(Float64.(t_save))
+x_array = collect(Float64.(x_plot))
+
+# CRITICAL: Use matopen/matclose with NO compress parameter
+# This forces MAT v0.10.7 to use v5 format
+file_path = joinpath(@__DIR__, "allen_cahn_v5.mat")
+file = matopen(file_path, "w")
+write(file, "t", t_array)
+write(file, "x", x_array)
+write(file, "usol", usol_save)
+close(file)
+
+println("Data saved at: $file_path")
+
+# ----- Verify the saved file ----------------------------------------
+println("\n--- File Verification ---")
+file_size = filesize(file_path)
+println("File size: $(file_size) bytes ($(round(file_size/1024/1024, digits=2)) MB)")
+
+data_check = matread(file_path)
+println("Keys in file: ", keys(data_check))
+println("Shape of usol: ", size(data_check["usol"]))
+println("Shape of t: ", size(data_check["t"]))
+println("Shape of x: ", size(data_check["x"]))

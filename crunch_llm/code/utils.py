@@ -39,6 +39,9 @@ import mimetypes
 import io  
 import PIL.Image
 
+import os
+import re
+import glob
 
 current_file_dir = Path(__file__).parent 
 # Build the full path to the .env file in that *same directory*
@@ -840,4 +843,379 @@ def encode_image_to_data_url(filepath: str, max_width: int = 800) -> str:
     data_url = f"data:{mime_type};base64,{base64_string}"
     return data_url
 
+# Operator Learning Utils
 
+def clean_descriptions(code_string):
+    cleaned_lines = []
+    keep_prefixes = [
+        '# # Cell',
+        '# ## Cell',
+        '# ### Cell'
+    ]
+
+    for line in code_string.splitlines():
+        # Handle lines that *don't* start with # but have a comment
+        if not line.strip().startswith('#') and '#' in line:
+            code_part = line.split('#', 1)[0].rstrip()
+            cleaned_lines.append(code_part)
+        
+        # Handle full-line comments
+        elif line.strip().startswith('#'):
+            is_cell_title = False
+            stripped_line = line.strip()
+            for prefix in keep_prefixes:
+                if stripped_line.startswith(prefix):
+                    is_cell_title = True
+                    break
+            if is_cell_title:
+                cleaned_lines.append(line)
+            else:
+                pass                
+        else:
+            cleaned_lines.append(line)
+            
+    # Join all the cleaned lines back together
+    return "\n".join(cleaned_lines)
+
+def homogenize_cell_comments(code_string):
+    find_pattern = re.compile(r'^\s*#\s*#*\s*Cell\s+(\d+)\s*:?\s*(.*)', flags=re.MULTILINE)
+    replace_format = r'# ## Cell \1: \2'
+    homogenized_code = re.sub(find_pattern, replace_format, code_string)
+    return homogenized_code
+
+def remove_analysis_blocks(code_string):
+    find_pattern = re.compile(
+        #r'^\s*# %% \[markdown\]\n'                  # Start of block
+        r'\s*# CODE ANALYSIS \(PART \d+ of \d+\)\n' # The specific title
+        r'.*?'                                     # All the content inside
+        r'^\s*# =======================================================\n?', # End of block
+        flags=re.MULTILINE | re.DOTALL
+    )
+    cleaned_code = re.sub(find_pattern, '', code_string)
+    return cleaned_code
+import os
+from datetime import datetime
+
+def update_and_save_report(
+    history: list,
+    user_question: str,
+    strategist_report: str,
+    error_report: str,
+    project_dir: str
+) -> str:
+    """
+    Generates a Markdown history table with detailed scoring and a full experiment report,
+    saving the report to the project directory.
+
+    Args:
+        history: The list of run_summary dictionaries containing implementation details and scores.
+        user_question: The initial user prompt.
+        strategist_report: The last strategy report from the strategist.
+        error_report: The final outcome report from the advisor.
+        project_dir: The directory to save the report in.
+
+    Returns:
+        A string containing the Markdown table of the trial history.
+    """
+    if not history:
+        return "No trials have been run yet."
+
+    # --- 1. Generate the Main Markdown History Table (Science Focused) ---
+    # Columns: Run | Model Description | Error | Integrity | Accuracy | Details | Optimality | Total
+    main_table = "| Run | Model Description | Error | Integrity | Accuracy | Details | Optimality | **Total** |\n"
+    main_table += "| :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |\n"
+
+    # --- 2. Generate the Path Reference Table (Logistics Focused) ---
+    path_table = "| Run | Project Directory |\n"
+    path_table += "| :--- | :--- |\n"
+
+    # --- 3. Generate the Data Artifacts Table (Output Focused) ---
+    data_table = "| Run | Data Saved |\n"
+    data_table += "| :--- | :--- |\n"
+    
+    for i, trial in enumerate(history):
+        # -- Extract Run ID --
+        run_id = trial.get("refinement_iterations", i + 1)
+
+        # -- Extract Model Description --
+        model_desc = trial.get("implementation_details", "N/A").replace("\n", " ").strip()
+        
+        # -- Extract Path --
+        path = trial.get("project_dir", "N/A")
+
+        # -- Extract Data Saving Details --
+        # We replace newlines with <br> to keep it readable within the table cell
+        data_saving = trial.get("data_saving", "N/A").replace("\n", "<br>")
+
+        # -- Extract Error --
+        error_str = trial.get("testing_error", "N/A")
+        
+        # -- Format Error --
+        error_formatted = "N/A"
+        if error_str != "N/A":
+            try:
+                error_float = float(error_str)
+                if error_float < 1e-4 or error_float > 1e4:
+                     error_formatted = f"{error_float:.2e}"
+                else:
+                    error_formatted = f"{error_float * 100:.2f}%"
+            except (ValueError, TypeError):
+                error_formatted = error_str 
+
+        # -- Extract and Calculate Scores --
+        s_int = trial.get("score_integrity", 0)
+        s_acc = trial.get("score_accuracy", 0)
+        s_det = trial.get("score_details", 0)
+        s_opt = trial.get("score_optimality", 0)
+        
+        try:
+            total_score = int(s_int) + int(s_acc) + int(s_det) + int(s_opt)
+        except (ValueError, TypeError):
+            total_score = "N/A"
+
+        # -- Append Row to Main Table --
+        main_table += (
+            f"| {run_id} | {model_desc} | {error_formatted} | "
+            f"{s_int} | {s_acc} | {s_det} | {s_opt} | **{total_score}** |\n"
+        )
+
+        # -- Append Row to Path Table --
+        path_table += f"| {run_id} | `{path}` |\n"
+
+        # -- Append Row to Data Table --
+        data_table += f"| {run_id} | {data_saving} |\n"
+
+    # --- 4. Generate the Full Experiment Report Content ---
+    report_content = f"""
+# Experiment Report
+*Last Updated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}*
+
+## User Request
+{user_question}
+
+---
+
+## Latest Strategy Report
+(This was the strategy for the *last successful run*)
+{strategist_report}
+
+---
+
+## Latest Outcome Report
+(This is the advisor's report from the *last successful run*)
+{error_report}
+
+---
+
+## Full Trial History
+{main_table}
+
+### Data Output Reference
+{data_table}
+
+### Directory Reference
+{path_table}
+
+---
+"""
+
+    # --- 5. Save the Full Report ---
+    if project_dir:
+        report_path = os.path.join(project_dir, "Experiment_Report.md")
+        try:
+            with open(report_path, "w", encoding='utf-8') as f:
+                f.write(report_content)
+            print(f"✅ Report updated: {report_path}")
+        except Exception as e:
+            print(f"❌ Error saving report: {e}")
+    else:
+        print("❌ Could not save report: No project directory specified.")
+
+    # Return only the main table for console display
+    return main_table
+
+def parse_history_log_to_list(history_log_string: str) -> list:
+    """
+    Parses the Markdown history table string and reconstructs
+    the history list of dictionaries.
+    """
+    history = []
+    if not history_log_string or history_log_string == "No trials have been run yet.":
+        return history
+
+    lines = history_log_string.strip().split('\n')
+    
+    # Check if header is valid (at least 2 lines: header + separator)
+    if len(lines) < 2:
+        print("--- WARNING: History log string is corrupt (too short). Resuming with empty history. ---")
+        return history
+
+    # Start parsing from the actual data rows (skip header and '---' line)
+    for line in lines[2:]:
+        parts = [p.strip() for p in line.split('|')]
+        
+        # Expect 3 parts: 'Run', 'Model', 'Error'
+        if len(parts) == 3:
+            summary = parts[1]
+            error_formatted = parts[2]
+            
+            testing_error_str = "N/A" # Default
+            
+            # This is the inverse of the save function's logic
+            if error_formatted != "N/A" and error_formatted.endswith('%'):
+                try:
+                    # Convert "22.43%" back to a float string like "0.2243"
+                    error_float = float(error_formatted.strip('%')) / 100.0
+                    # Format as string, close to original JSON's scientific notation
+                    testing_error_str = f"{error_float:.7e}" 
+                except (ValueError, TypeError):
+                    # If conversion fails, just store what we found
+                    testing_error_str = error_formatted
+            else:
+                testing_error_str = error_formatted # Handle "N/A" or other formats
+
+            # Reconstruct the run_summary dictionary
+            run_summary = {
+                "summary": summary,
+                "testing_error": testing_error_str
+                # Note: 'change_architecture' is not in the log,
+                # so it cannot be recovered. This is the best we can do
+                # from the report.
+            }
+            history.append(run_summary)
+            
+    print(f"--- Reconstructed {len(history)} run(s) from history log. ---")
+    return history
+
+
+def load_checkpoint_data(resume_project_dir, load_code_only=False):
+    """
+    Loads the key data from a specified project directory to resume a run.
+    
+    Args:
+        resume_project_dir (str): Path to the directory.
+        load_code_only (bool): If True, ignores Experiment_Report.md and only attempts 
+                               to load the code file. Useful for importing user code.
+    
+    Returns:
+        tuple: (strategist_report, error_report, history_log_string, history, file_content, filename)
+    """
+    
+    default_history_log = "No trials have been run yet."
+    default_history_list = []
+    # Default return structure for failures (tuple of 6)
+    default_return = ('', '', default_history_log, default_history_list, '', '')
+
+    if not resume_project_dir:
+        print("--- Starting a new run (no resume directory specified). ---")
+        return default_return
+
+    # --- 1. Validate paths ---
+    if not os.path.isdir(resume_project_dir):
+        print(f"--- ERROR: Directory not found: {resume_project_dir} ---")
+        print("--- Starting a new run instead. ---")
+        return default_return
+
+    # --- 2. Locate Code File (Common to both modes) ---
+    py_files = glob.glob(os.path.join(resume_project_dir, "*.py"))
+    jl_files = glob.glob(os.path.join(resume_project_dir, "*.jl"))
+    files_found = py_files + jl_files
+    
+    if len(files_found) == 0:
+        print(f"--- ERROR: No code file (.py or .jl) found in: {resume_project_dir} ---")
+        if load_code_only: return default_return
+        # If not code only, we continue to check reports, though likely futile
+        
+    if len(files_found) > 1:
+        print(f"--- ERROR: Multiple code files found in: {resume_project_dir} ---")
+        print("--- Cannot determine which code to use. ---")
+        return default_return
+        
+    if files_found:
+        code_file_path = files_found[0]
+        filename = os.path.basename(code_file_path)
+    else:
+        code_file_path = None
+        filename = ""
+
+    # --- MODE A: Load Code Only (User Import) ---
+    if load_code_only:
+        print(f"--- Import Mode: Loading ONLY code from: {resume_project_dir} ---")
+        if not code_file_path:
+            return default_return
+            
+        try:
+            with open(code_file_path, 'r', encoding='utf-8') as f:
+                file_content = f.read()
+            print(f"--- Successfully imported code: {filename} ---")
+            
+            # CRITICAL: Return tuple of 6 elements. 
+            # Reports are empty strings. History is default.
+            return '', '', default_history_log, default_history_list, file_content, filename
+            
+        except Exception as e:
+            print(f"--- ERROR reading code file: {e} ---")
+            return default_return
+
+    # --- MODE B: Standard Resume (Requires Experiment Report) ---
+    report_path = os.path.join(resume_project_dir, "Experiment_Report.md")
+    if not os.path.exists(report_path):
+        print(f"--- ERROR: Experiment_Report.md not found in: {resume_project_dir} ---")
+        print("--- Starting a new run instead. ---")
+        return default_return
+
+    if not code_file_path:
+        print("--- Starting a new run instead. ---")
+        return default_return
+
+    print(f"--- Checkpoint found. Resuming from: {resume_project_dir} ---")
+    print(f"--- Loading code from: {filename} ---")
+
+    # Read file contents
+    try:
+        with open(report_path, 'r', encoding='utf-8') as f:
+            report_content = f.read()
+            
+        with open(code_file_path, 'r', encoding='utf-8') as f:
+            file_content = f.read()
+            
+    except Exception as e:
+        print(f"--- ERROR reading checkpoint files: {e} ---")
+        return default_return
+
+    # Parse the Experiment Report
+    try:
+        # CRITICAL FIX: 
+        # Match until the START of the NEXT Header using Lookahead (?=...)
+        # This handles the case where the user's report contains '---' separators internally.
+        strat_match = re.search(r"## Latest Strategy Report\n(.*?)(?=\n## Latest Outcome Report)", report_content, re.DOTALL)
+        error_match = re.search(r"## Latest Outcome Report\n(.*?)(?=\n## Full Trial History)", report_content, re.DOTALL)
+        history_match = re.search(r"## Full Trial History\n(.*)", report_content, re.DOTALL)
+
+        if not (strat_match and error_match and history_match):
+            print("--- ERROR: Experiment_Report.md headers structure mismatch. ---")
+            return default_return
+
+        def clean_capture(text):
+            text = text.strip()
+            # If the previous writer put a "---" separator at the end of the section, strip it.
+            if text.endswith("---"):
+                text = text[:-3].strip()
+            return text
+
+        strategist_report = clean_capture(strat_match.group(1))
+        error_report = clean_capture(error_match.group(1))
+        history_log_string = history_match.group(1).strip()
+        
+        # Import parser (assuming it lives in utils or is importable)
+        from crunch_llm.code.utils import parse_history_log_to_list 
+        history = parse_history_log_to_list(history_log_string)
+        
+        print(f"--- Successfully loaded all checkpoint data. ---")
+        
+    except Exception as e:
+        print(f"--- ERROR parsing Experiment_Report.md: {e} ---")
+        return default_return
+
+    # Return the extracted data
+    return strategist_report, error_report, history_log_string, history, file_content, filename

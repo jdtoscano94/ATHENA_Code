@@ -17,6 +17,7 @@ from pathlib import Path # Import the Path object
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_anthropic import ChatAnthropic  # <--- NEW: Import for Claude
 
 
 # Get the directory of the *current file* (e.g., /.../crunch_llm/code/)
@@ -184,6 +185,182 @@ class Retriever_Agent:
         
         return result
 
+    def clear_history(self):
+        """Clears the agent's chat history."""
+        self.chat_history = []
+        # Access the verbose flag from the agent_executor
+        if self.agent_executor.verbose:
+            print("Chat history cleared.")
+
+    def get_history(self) -> list:
+        """Gets the agent's current chat history."""
+        return self.chat_history
+        
+class Retriever_Agent_full_content:
+    def __init__(self,
+                 db_path: str,
+                 collection_name: str,
+                 model='gpt-oss:120b',
+                 embeddings_model='bge-m3:567m',
+                 system_prompt="Your prompt goes here",
+                 temperature=0,
+                 verbose=False,
+                 k=3,
+                 return_full_content=False):  # ← NEW PARAMETER
+        """
+        Initializes the agent with a "smart" retrieval tool that reconstructs documents.
+        """
+        # --- Database Initialization ---
+        client = chromadb.PersistentClient(path=db_path)
+        
+        # --- Embedding Model Selection ---
+        if "google" in embeddings_model.lower():
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in .env file.")
+            self.embeddings = GoogleGenerativeAIEmbeddings(model=embeddings_model)
+        elif "openai" in embeddings_model.lower():
+            if "OPENAI_API_KEY" not in os.environ:
+                 raise ValueError("OPENAI_API_KEY not found in .env file.")
+            self.embeddings = OpenAIEmbeddings(model=embeddings_model)
+        else:
+            self.embeddings = OllamaEmbeddings(model=embeddings_model)
+            
+        self.vector_store = Chroma(
+            client=client,
+            collection_name=collection_name,
+            embedding_function=self.embeddings
+        )
+        
+        self.last_retrieved_docs = []
+        self.return_full_content = return_full_content  # ← STORE FLAG
+
+        # --- Define the tool ---
+        @tool("retrieve_documents")  # ← Explicit name
+        def retrieve(query: str) -> str:
+            """
+            Retrieve information related to a query. If a retrieved document is part of a
+            larger file, this tool automatically fetches all parts and reconstructs the
+            full document.
+            """
+            if verbose:
+                print(f"--- Initial search for query: '{query}' ---")
+            initial_docs = self.vector_store.similarity_search(query, k=k)
+            
+            if not initial_docs:
+                self.last_retrieved_docs = []
+                return "No relevant documents found in the database."
+
+            final_docs = []
+            processed_files = set()
+
+            for doc in initial_docs:
+                source_file = doc.metadata.get('source_file')
+                if source_file and source_file not in processed_files:
+                    processed_files.add(source_file)
+                    if 'part' in doc.metadata:
+                        if verbose:
+                            print(f"  → Found chunk from '{doc.metadata['filename']}'. Reconstructing full file...")
+                        all_chunks = self.vector_store.get(where={'source_file': source_file}, include=["metadatas", "documents"])
+                        
+                        if not all_chunks['ids']:
+                             if verbose:
+                                 print(f"  → Warning: No chunks found for source_file '{source_file}'.")
+                             continue
+                        
+                        sorted_chunks = sorted(zip(all_chunks['documents'], all_chunks['metadatas']), 
+                                              key=lambda item: int(item[1].get('part', '1/1').split('/')[0]))
+                        full_content = "\n".join([chunk[0] for chunk in sorted_chunks])
+                        
+                        merged_metadata = sorted_chunks[0][1].copy()
+                        merged_metadata.pop('part', None)
+                        merged_metadata.pop('cell_description', None)
+                        
+                        reconstructed_doc = Document(page_content=full_content, metadata=merged_metadata)
+                        final_docs.append(reconstructed_doc)
+                    else:
+                        if verbose:
+                            print(f"  → Found single document: '{doc.metadata.get('filename', 'N/A')}'")
+                        final_docs.append(doc)
+            
+            self.last_retrieved_docs = final_docs
+            
+            # ← CONDITIONAL RETURN BASED ON FLAG
+            if self.return_full_content:
+                # Return FULL content for librarian
+                if verbose:
+                    print(f"--- Returning FULL content ({len(final_docs)} docs) ---")
+                
+                full_content_parts = []
+                for doc in final_docs:
+                    full_content_parts.append(f"### {doc.metadata.get('filename', 'Unknown')}\n\n{doc.page_content}")
+                
+                return "\n\n---\n\n".join(full_content_parts)
+            else:
+                # Return SUMMARY for template retriever
+                summary_lines = []
+                for doc in final_docs:
+                    meta = doc.metadata
+                    summary = (
+                        f"Source File: {meta.get('filename', 'N/A')}\n"
+                        f"  Equation: {meta.get('equation', 'Unknown')}\n"
+                        f"  Optimizer: {meta.get('optimizer_scheme', 'Unknown')}\n"
+                        f"  Problem: {meta.get('problem_type', 'Unknown')}\n"
+                        f"  Type: {meta.get('type', 'Unknown')}\n"
+                    )
+                    summary_lines.append(summary)
+                
+                serialized_summary = "\n---\n".join(summary_lines)
+                
+                if verbose:
+                    print(f"--- Returning summary ---\n{serialized_summary}\n")
+                
+                return serialized_summary
+        
+        # --- Agent setup ---
+        llm = ChatOllama(model=model, temperature=temperature)
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ])
+        
+        tools = [retrieve] 
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=verbose)
+        self.chat_history = []
+
+    def run(self, user_question: str) -> dict:
+        """
+        Runs a single turn and appends the original retrieved code to the result.
+        """
+        self.last_retrieved_docs = [] 
+        
+        result = self.agent_executor.invoke({
+            "input": user_question,
+            "chat_history": self.chat_history
+        })
+
+        ai_message = result["output"]
+        self.chat_history.extend([
+            HumanMessage(content=user_question),
+            AIMessage(content=ai_message),
+        ])
+        
+        result['original_code'] = self.last_retrieved_docs
+        
+        return result
+
+    def clear_history(self):
+        """Clears the agent's chat history."""
+        self.chat_history = []
+        # Access the verbose flag from the agent_executor
+        if self.agent_executor.verbose:
+            print("Chat history cleared.")
+
+    def get_history(self) -> list:
+        """Gets the agent's current chat history."""
+        return self.chat_history
 
 class aRAGAgent:
     def __init__(self, 
@@ -294,6 +471,132 @@ class aRAGAgent:
             AIMessage(content=ai_message),
         ])
         return result
+    def clear_history(self):
+        """Clears the agent's chat history."""
+        self.chat_history = []
+        # Access the verbose flag from the agent_executor
+        if self.agent_executor.verbose:
+            print("Chat history cleared.")
+
+    def get_history(self) -> list:
+        """Gets the agent's current chat history."""
+        return self.chat_history
+
+
+class aRAGAgent_single_chunk: #single chunk
+    def __init__(self, 
+                 db_path: str,
+                 model: str,
+                 embeddings_model: str ='bge-m3:567m',
+                 model_provider: str = 'ollama',
+                 embeddings_provider: str = 'ollama',
+                 collection_name='documents',
+                 system_prompt="You are a powerful AI assistant...",
+                 temperature=0, 
+                 verbose=False,
+                 k=5):
+        """
+        Initializes a generalized RAG agent that can use ollama, google, or openai
+        for both its main LLM and its embeddings model.
+        """
+        
+        # --- 1. Initialize Embeddings Model (Generalized) ---
+        embeddings = None
+        if embeddings_provider.lower() == 'ollama':
+            embeddings = OllamaEmbeddings(model=embeddings_model)
+            
+        elif embeddings_provider.lower() == 'google':
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in .env file.")
+            embeddings = GoogleGenerativeAIEmbeddings(model=embeddings_model)
+            
+        elif embeddings_provider.lower() == 'openai':
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found in .env file.")
+            embeddings = OpenAIEmbeddings(model=embeddings_model)
+        else:
+            raise ValueError(f"Unknown embeddings_provider: '{embeddings_provider}'.")
+
+        
+        # --- 2. Initialize ChromaDB (Unchanged) ---
+        client = chromadb.PersistentClient(path=db_path)
+        vector_store = Chroma(
+            client=client,
+            collection_name=collection_name,
+            embedding_function=embeddings  # Now uses the generalized embeddings
+        )
+        
+        # --- 3. Retrieval Tool
+        # The tool is defined inside __init__ so it can access 'vector_store'
+        @tool("retrieve_documents")
+        def retrieve(query: str) -> str:
+            """Retrieve implementation code from the local code database."""
+            if verbose:
+                print(f"--- Retrieving documents for query: '{query}' ---")
+            
+            retrieved_docs = vector_store.similarity_search(query, k=k)
+            
+            if not retrieved_docs:
+                return "No relevant documents found in the database."
+
+            # Return ONLY the code content, no metadata
+            code_blocks = []
+            for doc in retrieved_docs:
+                # Extract just the code portion (assuming it's in the page_content)
+                code_blocks.append(doc.page_content)
+            
+            return "\n\n---\n\n".join(code_blocks)
+
+
+        # --- 4. Initialize Main LLM (Generalized) ---
+        llm = None
+        if model_provider.lower() == 'ollama':
+            llm = ChatOllama(model=model, temperature=temperature)
+            
+        elif model_provider.lower() == 'google':
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in .env file.")
+            llm = ChatGoogleGenerativeAI(model=model, temperature=temperature)
+            
+        elif model_provider.lower() == 'openai':
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found in .env file.")
+            llm = ChatOpenAI(model=model, temperature=temperature)
+        else:
+            raise ValueError(f"Unknown model_provider: '{model_provider}'.")
+
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", system_prompt),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("user", "{input}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
+        ])
+        
+        tools = [retrieve]
+        agent = create_tool_calling_agent(llm, tools, prompt)
+        
+        self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=verbose)
+        self.chat_history = []
+
+    def run(self, user_question: str) -> dict:
+        """
+        Runs a single turn of the conversation.
+        """
+        result = self.agent_executor.invoke({
+            "input": user_question,
+            "chat_history": self.chat_history
+        })
+
+        ai_message = result["output"]
+
+        self.chat_history.extend([
+            HumanMessage(content=user_question),
+            AIMessage(content=ai_message),
+        ])
+        return result
+
+
+
     def clear_history(self):
         """Clears the agent's chat history."""
         self.chat_history = []
@@ -524,43 +827,68 @@ class aRAGAgent_multimodal:
         """Get the current conversation history."""
         return self.chat_history.copy()
 
-
 class memoryAgent:
     def __init__(self,
-                  model='gpt-oss:120b', 
+                 model: str,  # e.g., 'grok-beta' or 'claude-3-5-sonnet-20241022'
                  model_provider: str = 'ollama',
                  system_prompt: str = "You are a powerful AI assistant...", 
                  temperature: float = 0, 
                  verbose: bool = False):
         """
         Initializes the agent, its tools, and its memory.
-        Can use 'ollama', 'google', or 'openai' providers.
+        Supports: 'ollama', 'google', 'openai', 'claude', 'grok'.
         """
 
-        llm = None # Initialize llm
+        llm = None 
         
-        # --- NEW: Select LLM based on provider ---
-        if model_provider.lower() == 'ollama':
-            # This is the default, model='gpt-oss:20b'
+        # Normalize provider string
+        provider = model_provider.lower()
+
+        # --- 1. OLLAMA ---
+        if provider == 'ollama':
             llm = ChatOllama(model=model, temperature=temperature)
             
-        elif model_provider.lower() == 'google':
+        # --- 2. GOOGLE ---
+        elif provider == 'google':
             if "GOOGLE_API_KEY" not in os.environ:
                 raise ValueError("GOOGLE_API_KEY not found in .env file.")
             llm = ChatGoogleGenerativeAI(model=model, temperature=temperature)
             
-        elif model_provider.lower() == 'openai':
+        # --- 3. OPENAI (Standard) ---
+        elif provider == 'openai':
             if "OPENAI_API_KEY" not in os.environ:
                 raise ValueError("OPENAI_API_KEY not found in .env file.")
             llm = ChatOpenAI(model=model, temperature=temperature)
+
+        # --- 4. CLAUDE (Anthropic) ---
+        elif provider in ['claude', 'anthropic']:
+            if "ANTHROPIC_API_KEY" not in os.environ:
+                raise ValueError("ANTHROPIC_API_KEY not found in .env file.")
+            # Uses the package we pinned to <1.0.0
+            llm = ChatAnthropic(model=model, temperature=temperature)
+
+        # --- 5. GROK (xAI) ---
+        elif provider in ['grok', 'xai']:
+            if "XAI_API_KEY" not in os.environ:
+                raise ValueError("XAI_API_KEY not found in .env file.")
+            
+            # THE ADAPTER TRICK:
+            # We use ChatOpenAI but point it to xAI's servers.
+            # This avoids needing the incompatible langchain-xai package.
+            llm = ChatOpenAI(
+                model=model,
+                temperature=temperature,
+                openai_api_key=os.environ["XAI_API_KEY"],
+                openai_api_base="https://api.x.ai/v1" 
+            )
+
         else:
             raise ValueError(
                 f"Unknown model_provider: '{model_provider}'. "
-                "Please use 'ollama', 'google', or 'openai'."
+                "Please use 'ollama', 'google', 'openai', 'claude', or 'grok'."
             )
-        # --- END NEW ---
 
-        # The rest of the class is exactly the same
+        # --- Standard Agent Setup (Unchanged) ---
         prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
             MessagesPlaceholder(variable_name="chat_history"),
@@ -568,28 +896,46 @@ class memoryAgent:
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
         
-        tools = []
+        tools = [] # Add tools here if needed
+        
+        # Create the agent
         agent = create_tool_calling_agent(llm, tools, prompt)
         
         self.agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=verbose)
         self.chat_history = []
 
-    def run(self, user_question: str) -> dict: # Changed return type hint to dict
-        """
-        Runs a single turn of the conversation.
-        """
-        result = self.agent_executor.invoke({
-            "input": user_question,
-            "chat_history": self.chat_history
-        })
+    def run(self, user_question: str) -> dict:
+            result = self.agent_executor.invoke({
+                "input": user_question,
+                "chat_history": self.chat_history
+            })
 
-        ai_message = result["output"]
+            # --- FIX START: Normalize Output ---
+            ai_message = result["output"]
+            
+            # If Anthropic returns a list of blocks like [{'text': '...', ...}]
+            if isinstance(ai_message, list) and len(ai_message) > 0:
+                if isinstance(ai_message[0], dict) and 'text' in ai_message[0]:
+                    ai_message = ai_message[0]['text']
 
-        # Update the internal chat history
-        self.chat_history.append(HumanMessage(content=user_question))
-        self.chat_history.append(AIMessage(content=ai_message))
+            # Update internal history with the CLEAN text
+            self.chat_history.append(HumanMessage(content=user_question))
+            self.chat_history.append(AIMessage(content=ai_message))
+            
+            # Optional: Update the result dict so the user gets clean text too
+            result["output"] = ai_message 
 
-        return result
+            return result
+
+    def clear_history(self):
+        """Clears the agent's chat history."""
+        self.chat_history = []
+        if self.agent_executor.verbose:
+            print("Chat history cleared.")
+
+    def get_history(self) -> list:
+        return self.chat_history
+
 class BasicAgent:
     def __init__(self,
                  model='gpt-oss:20b', 
@@ -664,65 +1010,85 @@ class BasicStructuredAgent:
         result = self.chain.invoke({ "input": user_question })
         return result
 
-
 class StructuredAgent:
     def __init__(self,
                  model: str, 
-                 model_provider: str = 'ollama', # Now accepts 'ollama', 'google', or 'openai'
-                 system_prompt: str = "Your prompt goes here", 
+                 model_provider: str = 'ollama',
+                 system_prompt: str = "You are a helpful assistant. Return output in JSON format.", 
                  temperature: float = 0, 
                  verbose: bool = False):
         
-        llm = None # Initialize llm
+        llm = None 
         
-        # --- Select LLM based on provider ---
-        if model_provider.lower() == 'ollama':
-            # REVERTED: Rely *only* on the system prompt for JSON.
+        # Normalize provider string
+        provider = model_provider.lower()
+
+        # --- 1. OLLAMA ---
+        if provider == 'ollama':
             llm = ChatOllama(model=model, temperature=temperature)
             
-        elif model_provider.lower() == 'google':
+        # --- 2. GOOGLE ---
+        elif provider == 'google':
             if "GOOGLE_API_KEY" not in os.environ:
                 raise ValueError("GOOGLE_API_KEY not found in .env file.")
+            llm = ChatGoogleGenerativeAI(model=model, temperature=temperature)
             
-            # REVERTED: Removed the 'response_format' argument
-            llm = ChatGoogleGenerativeAI(
-                model=model, 
-                temperature=temperature
-            )
-            
-        elif model_provider.lower() == 'openai':
+        # --- 3. OPENAI (Standard) ---
+        elif provider == 'openai':
             if "OPENAI_API_KEY" not in os.environ:
                 raise ValueError("OPENAI_API_KEY not found in .env file.")
-                
-            # REVERTED: Removed the 'model_kwargs' argument
+            llm = ChatOpenAI(model=model, temperature=temperature)
+
+        # --- 4. CLAUDE (Anthropic) ---
+        elif provider in ['claude', 'anthropic']:
+            if "ANTHROPIC_API_KEY" not in os.environ:
+                raise ValueError("ANTHROPIC_API_KEY not found in .env file.")
+            llm = ChatAnthropic(model=model, temperature=temperature)
+
+        # --- 5. GROK (xAI) ---
+        elif provider in ['grok', 'xai']:
+            if "XAI_API_KEY" not in os.environ:
+                raise ValueError("XAI_API_KEY not found in .env file.")
+            
+            # The Adapter Trick for Grok
             llm = ChatOpenAI(
-                model=model, 
-                temperature=temperature
+                model=model,
+                temperature=temperature,
+                openai_api_key=os.environ["XAI_API_KEY"],
+                openai_api_base="https://api.x.ai/v1" 
             )
+
         else:
             raise ValueError(
                 f"Unknown model_provider: '{model_provider}'. "
-                "Please use 'ollama', 'google', or 'openai'."
+                "Please use 'ollama', 'google', 'openai', 'claude', or 'grok'."
             )
 
-        # The rest of the class is identical
+        # --- Chain Setup ---
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
+            # We still allow passing history in, but we don't store it internally
             MessagesPlaceholder(variable_name="chat_history"),
             ("user", "{input}"), 
         ])
         
         parser = JsonOutputParser()
+        
+        # A simple linear chain: Prompt -> LLM -> JSON Parser
         self.chain = self.prompt | llm | parser
 
     def run(self, user_question: str, chat_history: List[BaseMessage] = None) -> Dict:
         """
-        Runs a single turn, considering chat history, and returns a parsed dictionary.
+        Stateless run.
+        Accepts external chat_history if provided, but does not store it.
+        Returns a parsed Python dictionary.
         """
+        # Default to empty list if no history provided
         history = chat_history or [] 
         
         result = self.chain.invoke({
             "input": user_question,
             "chat_history": history 
         })
+        
         return result
