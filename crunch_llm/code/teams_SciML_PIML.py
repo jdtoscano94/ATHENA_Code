@@ -1017,15 +1017,14 @@ CRITICAL: THE EMBEDDING GOES AFTER NORMALIZATION NOT BEFORE!
   - If a variable is embedded (e.g., $x$ via Periodic features), **DO NOT** pass the raw normalized variable to the network. Pass **ONLY** the embeddings (and other non-embedded variables like $t$).
   - *Reasoning:* Passing raw $x$ breaks the hard constraint of periodicity. 
 
-
 CRITICAL: ALL NORMALIZATIONS MUST BE DFIFFERENTIABE AND MUST BE ONLY APPLIED INSIDE THE CALL FUNCTION! EXPLICITLY SAY THIS TO THE PLANNER AND STRICLY FORBID NORMALIZATIONS OUTSIDE THE CALL FUNCTION. 
 - **Normalization:** Normalize inputs to match the chosen activation function range. Time can only be normalized to 0 and 1. Dont use negative times.
 - **Feature Embeddings (CHOOSE ONE ONLY):**
-  - **Global Stability Constraint:** For **ANY** Fourier embedding (Periodic or Random), you **MUST** use `degree < 20`. I MUST start WITH degree=2 and increase sequentiall if the advisor requires it. UNLESS THE ADVISOR SUGGESTS OTHERWISE.
-  - **Option A: Periodic Fourier Features (Priority):** Use **ALWAYS** if the domain has Periodic BCs.
-  - **Option B: Random Fourier Features:** Use for high-frequency problems *without* periodicity.
+  - **Global Stability Constraint:** For **ANY** Fourier embedding (Periodic or Random), you **MUST** use `degree < 20`. UNLESS THE ADVISOR SUGGESTS OTHERWISE.
+  - **Option A: Periodic Fourier Features (Priority):** Use **ALWAYS** if the domain has Periodic BCs. MUST start WITH degree=2 and increase sequentiall if the advisor requires it.
+  - **Option B: Random Fourier Features:** Use for high-frequency problems *without* periodicity. MUST START with degree=5  and scale s=3.0.
   - **Option C: Polynomials / RBFs:** Use Chebyshev/Legendre polynomials or Radial Basis Functions.  (For RBF degree<6)
-  - **Option D: None:** Only if user explicitly specifies it.  For non periodic use Random Fourier Features with degree=2 .
+  - **Option D: None:** Only if user explicitly specifies it.  For non periodic use Random Fourier Features with degree=5  and scale s=3.0.
 
 **4.2 Main Body Architecture & Optimization Strategy (STRICT LOGIC)**
 
@@ -1307,23 +1306,7 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 * **Condition B (No weak frmulations):**
     * *Verdict:* **REJECT** if the Strategist jumps to "weak PINNs"  without a mandate.
 
-**3. Constraint Implementation Strategy (Iterative & Proactive)**
-* **1. (The Singularity Check - Point Discontinuities):**
-    * **Trigger:** Does the boundary have a **point singularity** where BCs conflict?
-    * **Examples:** 
-        - Lid-driven cavity: Moving top wall ($u=1$) meets static side wall ($u=0$) at corners
-        - Any case where different BC values meet at a point
-    * **Check:** Trace the boundary perimeter. Do boundary conditions have **different values** that meet at corner points?
-    * **Decision:**
-        * **IF YES (Singularity exists):**
-            * **Verdict:** **REJECT** if using Global Hard Ansatz for the singular boundary
-            * **Requirement:** Must use **Soft (Loss-based) BCs** for at least the boundary containing the singularity
-            * **Reasoning:** A smooth analytical function cannot simultaneously satisfy $u=1$ and $u=0$ at the same point
-        * **IF NO (Smooth/Compatible BCs everywhere):**
-            * **Strategy:** Hard Constraints (Ansatz) are ALLOWED
-            * **This includes:** Periodic BCs, uniform Dirichlet, smooth varying BCs
-
-**4. The "Optimization & Weighting" Check (Stability Mandate)**
+**3. The "Optimization & Weighting" Check (Stability Mandate)**
 * **Definitions (CRITICAL DISTINCTION):**
     * **`lambdas` (Local Weights):** Vector weights (vRBA) applied pointwise inside the loss.
     * **`lam` (Global Weights):** Scalar weights balancing entire loss terms (e.g., `lam_pde`, `lam_bc`).
@@ -2002,15 +1985,24 @@ Follow these steps in exact order. Do not skip ahead.
     1. **Loss & Error History (Top plots):**
        * Y-axis range? (min/max values)
        * Shape: Smooth? Jumps? How many stages?
-       * **FINAL SEGMENT (after last jump):** Flat? Decreasing? ERRATIC with wild oscillations?
+       * **FINAL SEGMENT (after last jump) - CRITICAL ANALYSIS:**
+         * **Compare the error at the RIGHTMOST point vs 20\\% back from the end.**
+         * Example: If plot ends at iteration 12,000, compare error at iteration 12,000 vs error at iteration 9,600.
+         * **Is the rightmost value LOWER than the value 20% back?**
+           * **IF YES:** The curve is **STILL DECREASING** - NOT converged!
+           * **IF NO (same value):** The curve is **FLAT** - converged.
+         * **Quantify if decreasing:** "Error dropped from X to Y in final segment"
        * If oscillating: magnitude? (e.g., "between 1e-3 and 1e-2")
-       * Final error value from plot y-axis (RIGHTMOST POINT)?
-    
+       * **What is the EXACT error value at the RIGHTMOST POINT?**
+
     2. **Residual/Pointwise Error (Heatmap):**
        * Where are largest errors? (shock front/corners/uniform)
     
     3. **Solution Fields (Reference vs Prediction):**
        * Visually similar? Visible differences?
+
+    **CRITICAL RULE FOR CONVERGENCE:**
+    A curve is ONLY "flat/plateaued" if the error values in the **last 40 \\% of iterations** are approximately constant (within the same order of magnitude). If the error is still dropping (even slowly), it is NOT converged.
 
 4.  **Confirm with [STDOUT LOG]:**
     * **CRITICAL: The plots are still your primary source. The log is only for confirmation.**
@@ -2152,31 +2144,41 @@ Follow these steps in exact order. Do not skip ahead.
 * **Score Details:** [0-15]
 * **Score Optimality:** [0-15]
 * **TOTAL SCORE:** [Sum of above]
-
 **DECISION LOGIC:**
-1.  **Current Score Check:**
-    * **If Current Score $\ge$ 90:**
-        * **CHECK PLATEAU STATUS (IN THE VISUAL PLOT, FINAL SEGMENT ONLY):** Look at the final segment of the loss/error curve (after the last jump if continuation).
-            * **IF NO STABLE PLATEAU** (loss still decreasing or noisy in the final segment):
-                * **Status:** `REJECTED_FOR_REFINEMENT`
-                * **Instruction:** "Score is high but loss has not plateaued in the final stage. Increase iterations for the final stage to allow full convergence before exploration."
-            * **IF STABLE PLATEAU EXISTS IN FINAL SEGMENT:**
-                * **PROCEED** to Step 2 (History Check for exploration decision).
-    * **If Current Score < 90:**
-        * **Status:** `REJECTED_FOR_REFINEMENT`
-        * **Instruction:** "Refine physics/params."
 
-2.  **History Check (The "Stop at Success" Rule):**
-    * Look at `[TRIAL_HISTORY_LOG]`. Has **ANY** run (including current) achieved **Score ≥ 90**?
-    * **IF YES:** Check how many runs have been attempted since the FIRST successful run (Score ≥ 90).
+1.  **History Check FIRST:**
+    * Look at `[TRIAL_HISTORY_LOG]`. Has **ANY** run achieved **Score ≥ 90**?
+    * **IF YES:** Check how many runs have been attempted since the FIRST successful run with Score≥ 90.
         * **IF ≥ 5 runs since first success:** 
             * `APPROVED` - "Exploration complete. Best model was Run [ID with highest score]. Stopping."
+            * **STOP. No further analysis needed.**
         * **IF < 5 runs since first success:**
-            * `REJECTED_FOR_REFINEMENT` - "Continue exploration: Run [5 - count] more comparative benchmarks."
-    * **IF NO (this is the first Score ≥ 90):**
-        * `REJECTED_FOR_REFINEMENT` - "First success achieved. Run 5 more comparative benchmarks for robustness validation."
+            * Continue to Step 2 to evaluate current run.
+    * **IF NO (no previous successful run):**
+        * Continue to Step 2 to evaluate current run.
 
-    **KEY POINTS:**
+2.  **Current Score Check:**
+    * **If Current Score < 90:**
+        * `REJECTED_FOR_REFINEMENT` - "Refine physics/params."
+        * **STOP.**
+    
+    * **If Current Score ≥ 90:**
+        * **MANDATORY PLATEAU CHECK:**
+            * **Compare error at RIGHTMOST point vs 20% back from end.**
+            * **IF STILL DECREASING (not flat):**
+                * `REJECTED_FOR_REFINEMENT`
+                * "Score is excellent but error still decreasing from [value_at_80%] to [value_at_100%]. Increase iterations by 50%."
+                * **STOP. Do NOT suggest exploration.**
+            
+            * **IF FLAT (stable plateau):**
+                * **This is a successful run (Score ≥ 90 + plateau).**
+                * **IF this is the FIRST successful run:**
+                    * `REJECTED_FOR_REFINEMENT` - "First success. Run 5 more comparative benchmarks."
+                    * **EXPLORATION NOTE:** Suggest 2-3 specific alternatives.
+                * **IF there are already 1-4 successful runs:**
+                    * `REJECTED_FOR_REFINEMENT` - "Continue exploration: [5 - count] more runs needed."
+                    * **EXPLORATION NOTE:** Suggest 2-3 specific alternatives.
+        
     - Need 5 exploration runs after first success, then stop
 
 **Section 3: Forensic Analysis & Feedback**
