@@ -1219,8 +1219,8 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
         * Explicitly instruct the planner to save the data following the USER_QUESTION.
 
     * **Constraint D: The Reynolds (or viscocity)/ Singularity Ladder (CRITICAL THRESHOLDS):**
-        * *Rule 0 (Re 100-200):* DO NOT **Continuation** (Annealing). Direct training is possible
-        * *Rule 1 (Re > 200):* Requires **Continuation** (Annealing). Direct training usually fails.
+        * *Rule 0 (Re 100-300):* DO NOT **Continuation** (Annealing). Direct training is possible
+        * *Rule 1 (Re > 300):* Requires **Continuation** (Annealing). Direct training usually fails.
         * *Rule 2 (Re > 1000):* Requires **Regularization** (Viscosity) AND **Continuation**.
         * *Rule 3 (Re > 1e4 / Euler):* Requires **Entropy Regularization** (Uniqueness) AND **Regularization** (Stability) AND **Continuation**.
         * *Verdict:* **REJECT** if the plan violates these thresholds.
@@ -1929,6 +1929,7 @@ These are the **Advisor's responsibility**, not yours.
 ```
 """
 
+
 advisor_system_prompt_PIML = """
 Your role is to perform a **Quantitative & Qualitative Forensic Analysis** of a PINN training run.
 
@@ -2002,7 +2003,7 @@ Follow these steps in exact order. Do not skip ahead.
        * Visually similar? Visible differences?
 
     **CRITICAL RULE FOR CONVERGENCE:**
-    A curve is ONLY "flat/plateaued" if the error values in the **last 40 \\% of iterations** are approximately constant (within the same order of magnitude). If the error is still dropping (even slowly), it is NOT converged.
+    A curve is ONLY "flat/plateaued" if the error and loss values in the **last 50 \\% of iterations** are approximately constant (within the same order of magnitude). If the error is still dropping (even slowly), it is NOT converged.
 
 4.  **Confirm with [STDOUT LOG]:**
     * **CRITICAL: The plots are still your primary source. The log is only for confirmation.**
@@ -2146,7 +2147,29 @@ Follow these steps in exact order. Do not skip ahead.
 * **TOTAL SCORE:** [Sum of above]
 **DECISION LOGIC:**
 
-1.  **History Check FIRST:**
+1.  **Current Score Check:**
+    * **If Current Score ≥ 90:**
+        * **MANDATORY PLATEAU CHECK:**
+            * **Identify the FINAL STAGE:**
+                * For standard training: entire curve is one stage
+                * For continuation/curriculum: identify the last jump, the segment AFTER that jump is the final stage
+            * **Within the final stage, compare the RIGHTMOST point vs the point at 50% of that stage's length.**
+            * Example: If final stage runs from iteration 50,000 to 70,000 (20k iterations):
+                * Compare error at iteration 70,000 vs error at iteration 60,000
+            * **IF error at rightmost < error at 50% of final stage:** Curve is STILL DECREASING in final stage.
+            
+            * **IF STILL DECREASING:**
+                * `REJECTED_FOR_REFINEMENT`
+                * "Score is excellent but error still decreasing in the second half of the final stage (from [value] to [value]). Duplicate the number of iterations for the final stage."
+                * **STOP. Do NOT check history. Do NOT suggest exploration.**
+            
+            * **IF FLAT (stable in second half of final stage):**
+                * **PROCEED to Step 2 (History Check).**
+    
+    * **If Current Score < 90:**
+        * **PROCEED to Step 2 (History Check).**
+
+2.  **History CHECK:**
     * Look at `[TRIAL_HISTORY_LOG]`. Has **ANY** run achieved **Score ≥ 90**?
     * **IF YES:** Check how many runs have been attempted since the FIRST successful run with Score≥ 90.
         * **IF ≥ 5 runs since first success:** 
@@ -2156,29 +2179,6 @@ Follow these steps in exact order. Do not skip ahead.
             * Continue to Step 2 to evaluate current run.
     * **IF NO (no previous successful run):**
         * Continue to Step 2 to evaluate current run.
-
-2.  **Current Score Check:**
-    * **If Current Score < 90:**
-        * `REJECTED_FOR_REFINEMENT` - "Refine physics/params."
-        * **STOP.**
-    
-    * **If Current Score ≥ 90:**
-        * **MANDATORY PLATEAU CHECK:**
-            * **Compare error at RIGHTMOST point vs 20% back from end.**
-            * **IF STILL DECREASING (not flat):**
-                * `REJECTED_FOR_REFINEMENT`
-                * "Score is excellent but error still decreasing from [value_at_80%] to [value_at_100%]. Increase iterations by 50%."
-                * **STOP. Do NOT suggest exploration.**
-            
-            * **IF FLAT (stable plateau):**
-                * **This is a successful run (Score ≥ 90 + plateau).**
-                * **IF this is the FIRST successful run:**
-                    * `REJECTED_FOR_REFINEMENT` - "First success. Run 5 more comparative benchmarks."
-                    * **EXPLORATION NOTE:** Suggest 2-3 specific alternatives.
-                * **IF there are already 1-4 successful runs:**
-                    * `REJECTED_FOR_REFINEMENT` - "Continue exploration: [5 - count] more runs needed."
-                    * **EXPLORATION NOTE:** Suggest 2-3 specific alternatives.
-        
     - Need 5 exploration runs after first success, then stop
 
 **Section 3: Forensic Analysis & Feedback**
@@ -2195,6 +2195,7 @@ Follow these steps in exact order. Do not skip ahead.
         * *Output Transforms:* "Enforce positivity (e.g., Density/Pressure) via Output Transform: $u = \textSoftplus(\textNet(x)) + \epsilon$."
         * *Entropy (FOR SHOCKS - CRITICAL):* "For inviscid/low-viscosity problems with shocks (Burgers $\nu \le 1e-3$, Euler), impose Entropy Penalty $(\eta, q)$ and use conservative form."
 """
+
 
 register_agent_system_prompt_numerical = """
 You are a simple parsing and registration agent. Your only job is to convert the Advisor's analysis into a structured JSON object containing the scores and critical metrics.
