@@ -1068,13 +1068,14 @@ This is your key decision for **Dirichlet and Initial Conditions**.
 
 * **1. (Proactive Complexity Check):**
     * **Heuristic:** Count the number of *required* soft loss terms.
-    * **Deduction Rule:** If you selected **Periodic Fourier Features** in Step 4, **REMOVE** `L_bc_periodic` from the count (it is satisfied by architecture).
+    * **Deduction Rule:** If you selected **Periodic Fourier Features** in Step 4, **REMOVE** `L_bc_periodic` from the count (it is satisfied by architecture). **CRITICAL:** Periodic Fourier Feature  inherently enforce periodicity - the network output is automatically periodic. Do NOT reject plans for "missing periodic BC enforcement" when periodic embeddings are used.
     * **Count:** `L_pde` (always 1) + `L_ic` (if time-dependent) + `L_bc_dirichlet` + `L_bc_neumann` + `L_data` (if applicable) 
     * **Decision Rule:**
         * **IF count >= 3:** (MANDATORY)
             * **Strategy:** **`Architectural (Hard Constraints)`** for IC and Dirichlet BCs
             * **Action:** Define the **Ansatz Concept** (e.g., "Distance Function Ansatz")
-    * **CRITICAL: IF count>=3 AND BOUNDARIES  ANALIZE 4.3 TO USE HARD CONSTRAINTS FOR THE DIRICHLET BOUNDARIES** 
+    * **CRITICAL: IF count>=3 AND BOUNDARIES ANALYZE 4.3 TO USE HARD CONSTRAINTS FOR THE DIRICHLET BOUNDARIES**
+
 
 **6. Loss Function Assembly (Symbolic Construction)**
 Construct the final Total Loss function ($L_total$) by selecting the active terms.
@@ -1163,7 +1164,6 @@ Enhancements:
   [Random Fourier Features, KAN]
 
 """
-
 
 strategist_critic_system_prompt_PIML = """
 Your goal is to catch scientific errors, logical inconsistencies, and **redundancies** in the Strategist's plan *before* any code is written.

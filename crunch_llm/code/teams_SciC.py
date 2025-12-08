@@ -466,21 +466,64 @@ As per your system instructions:
             
         print("--- Advisor Markdown Report Received ---")
         print(markdown_report)
-
-        # 6. Parse the agent's report (will raise parsing/KeyErrors)
+        
+        # 6. Parse the agent's report with retry logic
         print("Parsing report with AdvisorParser...")
-        json_response = advisor_parser.run(markdown_report)
+        max_retries = 3
+        json_response = None
+        parser_feedback = ""
+        parsing_successful = False
         
-        status = json_response.get("status", "REJECTED_FOR_REFINEMENT")
-        analysis = json_response.get("analysis", "Parser failed to extract 'analysis'.")
-        recommendation = json_response.get("recommendations_for_planner", "Parser failed to extract 'recommendations_for_planner'.")
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Add feedback from previous attempt if this is a retry
+                if parser_feedback:
+                    enhanced_prompt = f"{markdown_report}\n\n---\n**PARSER FEEDBACK:**\n{parser_feedback}\n\nFix the issues and return valid JSON with keys: 'status', 'analysis', 'recommendations_for_planner'. THE ALLOWED STATUS ARE APPROVED, REJECTED_FOR_REFINEMENT AND REJECTED_FATAL"
+                    json_response = advisor_parser.run(enhanced_prompt)
+                else:
+                    json_response = advisor_parser.run(markdown_report)
+                
+                # Check all required keys exist
+                required_keys = {"status", "analysis", "recommendations_for_planner"}
+                missing_keys = required_keys - set(json_response.keys())
+                if missing_keys:
+                    parser_feedback = f"ERROR: Missing keys: {missing_keys}. Required keys: {required_keys}. Found: {list(json_response.keys())}"
+                    print(f"⚠️  Parser attempt {attempt}/{max_retries} failed: {parser_feedback}")
+                    continue
+                
+                status = json_response["status"].strip().upper()  # Normalize
+                analysis = json_response["analysis"]
+                recommendation = json_response["recommendations_for_planner"]
+                
+                # Check fields are not empty
+                if not status:
+                    parser_feedback = "ERROR: 'status' is empty."
+                    print(f"⚠️  Parser attempt {attempt}/{max_retries} failed: {parser_feedback}")
+                    continue
+                
+                if not analysis or not analysis.strip():
+                    parser_feedback = "ERROR: 'analysis' is empty."
+                    print(f"⚠️  Parser attempt {attempt}/{max_retries} failed: {parser_feedback}")
+                    continue
+                
+                # Success!
+                print(f"✅ Parser succeeded on attempt {attempt}")
+                parsing_successful = True
+                break
+                
+            except Exception as e:
+                parser_feedback = f"ERROR: Exception {type(e).__name__}: {str(e)}"
+                print(f"⚠️  Parser attempt {attempt}/{max_retries} failed: {parser_feedback}")
+                if attempt < max_retries:
+                    print(f"🔄 Retrying... (attempt {attempt + 1}/{max_retries})")
         
-        is_approved = (status.upper() == "APPROVED")
-        error_report = f"Advisor Analysis:\n{analysis}\n\nRecommendation:\n{recommendation}"
+        if not parsing_successful:
+            raise ValueError(f"❌ Parser failed after {max_retries} attempts. Last error: {parser_feedback}")
+        
+        is_approved = check_approval(status.upper())
+        error_report = f"Advisor Analysis:\n{markdown_report}\n"
             
     else:
-        # --- PATH B: 'summary_all.png' was NOT FOUND ---
-        # This is a planned failure, not a crash.
         print("❌ Advisor REJECTED: Required 'summary_all.png' not found.")
         
         analysis = ("REJECTED: Debugger approved execution, but the required summary plot 'summary_all.png' "
@@ -604,9 +647,15 @@ You are verifying the **NUMERICAL KERNEL** against the **TOOLBOX**.
     * *Unacceptable:* "Spectral Method" vs "Finite Difference".
 
 2.  **Dimensional Consistency (Context-Aware):**
-    * **Standard Case:** If the problem is 2D and the Strategy requests a 2D method, a 1D code must be **REJECTED** *unless* the Toolbox only has the 1D version (check Toolbox).
-    * **Reduction Exception:** If the Strategy Report *explicitly justifies* using a lower-dimensional method (e.g., "use 1D solver via coordinate transformation," "dimensional splitting," or "exploit symmetry"), then a lower-dimensional code is **APPROVED**.
-    * *You must read the "Rationale" or "Methodology" section of the Report to check for this justification.*
+    * **Standard Case:** If the problem is 2D and the Strategy requests a 2D method, a 1D code should be **REJECTED** *unless*:
+        1. The Strategy Report *explicitly justifies* dimensional reduction, OR
+        2. **The Toolbox only contains the 1D version of that method** (check available files)
+    
+    * **Library Limitation Exception (CRITICAL):** 
+        * If the Retriever reports that only a 1D version exists (e.g., "only found Fourier_Spectral_1D.jl"), this means the library does NOT have a 2D version.
+        * In this case, **APPROVE the 1D code** - the Librarian will later adapt it to 2D.
+        * **Rationale:** A 1D Fourier Spectral code can be extended to 2D (tensor product grid).
+    * **Reduction Exception:** If there is no other option than using a lower-dimensional method (e.g., "use 1D solver via coordinate transformation," "dimensional splitting," or "exploit symmetry"), then a lower-dimensional code is **APPROVED**.
 
 3.  **Template vs. Solution:**
     * The retrieved code is a *Template*. It does not need to have the specific Boundary Conditions, Initial Conditions, or specific flux functions of the user problem.
@@ -844,61 +893,68 @@ import os # LINE_4
 }}
 ```
 """
-
 advisor_parser_system_prompt_ON = """
-You are a simple parsing agent. Your only job is to convert a natural-language Markdown report into a single, valid JSON object.
+You are a **Robust and Flexible Parsing Agent**.
+Your input comes from another LLM (the Advisor), so the formatting (headers, bolding, spacing) is **NOT guaranteed** to be consistent.
 
-The report will have three sections: "## Status", "## Analysis", and "## Recommendation".
+**YOUR GOAL:**
+Extract the critical signals (Status, Analysis, Recommendations) regardless of the specific Markdown structure or header style used.
 
-You must extract the text from each section and put it into a JSON object with three keys:
-1.  `"status"`: The text following "## Status".
-2.  `"analysis"`: The text following "## Analysis".
-3.  `"recommendations_for_planner"`: The text following "## Recommendation".
+**INSTRUCTIONS:**
 
----
-**Example Input:**
+1.  **Extract `"status"`:**
+    * **Look in "Section 1"** (might be labeled "Section 1:", "### Section 1:", "**Section 1:**", etc.)
+    * Within that section, find the line containing "Status:" or "**Status:**"
+    * **Scan for one of these exact keywords:** `APPROVED`, `REJECTED_FOR_REFINEMENT`, `REJECTED_FATAL`
+    * *Flexibility:* It might appear as:
+        - `**Status:** APPROVED`
+        - `*   **Status:** APPROVED` (with bullet point)
+        - `Status: **APPROVED**`
+    * *Action:* Extract ONLY the keyword. Remove all punctuation, markdown (`*`, `**`), and whitespace.
 
-## Status
-REJECTED_FOR_REFINEMENT
+2.  **Extract `"analysis"`:**
+    * Locate the section discussing the results. It might be labeled:
+        - "Forensic Analysis"
+        - "Observation" 
+        - "Diagnosis"
+        - "Section 3"
+        - "Analysis"
+        - Any section with numbered subsections like "1. Observation:", "2. Diagnosis:"
+    * *Action:* Capture the summary of *why* the decision was made (e.g., "The shocks are smeared due to dissipation").
+    * *If multiple subsections exist:* Concatenate them into a single analysis string.
 
-## Analysis
-The final $L^2$ error is high ($10^{{-2}}$), and the error contour plot shows this error is concentrated at the spatial boundaries.
+3.  **Extract `"recommendations_for_planner"`:**
+    * Locate the actionable instructions. It might be labeled:
+        - "Targeted Improvements"
+        - "Recommendations"
+        - "Requirements"
+        - "Feedback"
+        - "3. Targeted Improvements:"
+    * *Action:* Extract the specific fix (e.g., "Switch to flux_hllc").
+    * *Logic:* If the status is `APPROVED` or the text explicitly says "None" or "No changes needed", set this value to string "None".
 
-## Recommendation
-Suggest the Planner modify **Cell 5** to implement **hard-constraint boundary conditions**.
----
+**CRITICAL RULES:**
+* **Be Tolerant:** Do not fail if a header is missing `#` or uses different casing. Use context to find the right text.
+* **Ignore Formatting:** Strip all markdown symbols (`*`, `**`, `###`, `-`, bullet points) when extracting values.
+* **Search Everywhere:** Don't assume sections are in a specific order. Scan the entire document.
+* **JSON Only:** Return strictly valid JSON.
+
+**Example Input (with bullet points):**
+
+### Section 1: Status Decision
+*   **Status:** APPROVED
+
+### Section 3: Forensic Analysis & Feedback
+**1. Observation:** Perfect execution. Score is 100.
+**3. Targeted Improvements:** None
 
 **Your Required JSON Output:**
 ```json
-{{
-  "status": "REJECTED_FOR_REFINEMENT",
-  "analysis": "The final $L^2$ error is high ($10^{{-2}}$), and the error contour plot shows this error is concentrated at the spatial boundaries.",
-  "recommendations_for_planner": "Suggest the Planner modify **Cell 5** to implement **hard-constraint boundary conditions**."
-}}
-```
-
-**Example Input:**(for APPROVAL):
-
-## Status
-
-APPROVED
-
-## Analysis
-
-The hybrid strategy was successful. The convergence plot shows the $L^2$ error dropped to $10^{{-6}}$.
-
-## Recommendation
-
-None
-
-**Your Required JSON Output:**
-
-```json
-{{
+{
   "status": "APPROVED",
-  "analysis": "The hybrid strategy was successful. The convergence plot shows the $L^2$ error dropped to $10^{{-6}}$.",
+  "analysis": "Perfect execution. Score is 100.",
   "recommendations_for_planner": "None"
-}}
+}
 ```
 """
 
@@ -1033,10 +1089,10 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 
 
 **2. The "Physics Consistency" Check (Verifier Role)**
-* *Role:* You are a **Verifier**, not a Simulator. Do not attempt to mentally calculate initial conditions or stability criteria.
+* *Role:* You are a **VERIFIER**, not a Simulator. Do not attempt to mentally calculate initial conditions or stability criteria.
 * *Derivation Trust Clause:*
-    * **Do NOT** challenge the Strategist's description of the physical setup if it is derived from the User's mathematical formulas.
-    * *Assumption:* Assume the Strategist has correctly extracted the Initial Conditions. Only reject if the **Method** chosen is fundamentally wrong for the **Equation Type**.
+    ** *DO NOT** challenge the Strategist's description of the physical setup if it is derived from the User's mathematical formulas.
+    * *CRITICAL:* Assume the Strategist has correctly extracted the Initial Conditions. Only reject if the **Method** chosen is fundamentally wrong for the **Equation Type**.
 
 **3. The "Redundancy" Check (Memory)**
 * *Scenario:* The Strategist proposes a configuration (e.g., "DGSEM, N=3, no Enhancements") that is **identical** to a failed experiment listed in the [TRIAL_HISTORY_LOG].
@@ -1047,7 +1103,8 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
         * *Verdict:* **REJECT**. Explanation: "Stop micromanaging. Use template defaults unless explicitly requested."
     * *Exemption (CRITICAL):* **Do NOT reject** the inclusion of **Adaptive Mesh Refinement (AMR)** or **Shock Capturing**, even if the user did not request them.
         * *Reasoning:* These are essential "Best Practices" for hyperbolic PDEs (like Euler/Navier-Stokes). The Strategist is *expected* to add them if the physics (shocks, instabilities) demands it.
-        
+     * *Exemption (CRITICAL):* **Do NOT reject** plot or visualization configurations. The strategiest can decide the best plots to present.
+
 **5. The "Data Blindness" Check (Validation)**
 * *Scenario:* The [USER_QUESTION] provides external data paths (e.g., `.npz` files, "True Data", "Sensors", or "Reference Solution"), but the [STRATEGIST_PLAN] is missing the **"Cross-Validation & Data Integration"** section or fails to explicitly mandate error calculation against these specific files.
     * *Verdict:* **REJECT**. Explanation: "Critical Oversight: The user provided ground truth/sensor data. Your plan ignores it. You must add the 'Cross-Validation' section and explicitly instruct the implementation to load this data and compute relative L2 errors against it."
@@ -1173,7 +1230,8 @@ f(x0) = x_target - x0 - velocity(u0_func(x0)) * t
 inspector_system_prompt = """
 You are the **Senior Code Reviewer (QA)** of the ATHENA Lab.
 Your goal is to perform a **Static Analysis** of the generated Julia code to verify it matches the [SCIENTIFIC_STRATEGY_REPORT].
-You do ot propose new methods or correct steps that are not specified on the [SCIENTIFIC_STRATEGY_REPORT]. 
+You do NOT propose new methods or correct steps that are not specified on the [SCIENTIFIC_STRATEGY_REPORT].
+**CRITICAL:** You are NOT a debugger. You only check if the implementation matches the strategy, not if the code will run without errors. Assume all imported functions exist.
 
 **INPUTS:**
 1.  **[SCIENTIFIC_STRATEGY_REPORT]:** The requirements (What *should* be there).
@@ -1186,14 +1244,16 @@ You do ot propose new methods or correct steps that are not specified on the [SC
 
 3.  **Data Audit (CRITICAL):** Analyze the data saving section (e.g., `npzwrite`, `save_solution`). Determine the exact **Keys** and **Array Dimensions/Shapes** being saved. 
 
-
 **VERIFICATION CHECKLIST (Context Aware):**
+* **Function Existence (DO NOT CHECK):** If the code calls a function (e.g., `boundary_condition_slip_wall`), assume it exists in the imported packages. You are NOT a debugger. Only check if the STRATEGY was followed, not if the code will run.
 * **Code Consistency (CRITICAL):** Verify that function calls match their definitions. **Check that arguments passed in the main execution block are explicitly accepted by the function signature.**
 * **Deliverables (CRITICAL):** Check for **Missing Logic**. If the Strategy asks to save specific files (e.g., `summary_all.png`, `results.npz`) or compute specific metrics (e.g., `L2 Error`), the code MUST contain the logic to do so. **If the plotting/saving code is missing, REJECT.**
 * **If Numerical:** Check for Solver Configuration (PolyDeg, Flux, Time Integrator).
 * **If Analytical:** Check for Correct Equation Logic, Root Finding, and Coordinate Mapping.
 * **Physics & Math Verification (CRITICAL):** Strictly compare the **Initial Conditions** and **Equations** in the code against the Strategy. You must verify that specific formulas (e.g., density profiles, pressure balance), constants (e.g., Gravity vector, Gamma), and trigonometric functions (e.g., `cos` vs `sin`) are implemented exactly as requested. Reject if the code uses a different approximation or mathematical function.
-* **Visualization (LENIENT MODE):** Do not be strict on the plots and visualization. As long as the code attempts to plot the **Fields** mentioned in the strategy, it is **ACCEPTABLE**. Do not reject based on layout or style or different timesteps. Sepecially for 1D+t problems
+* **Visualization (LENIENT MODE):** Do not be strict on the plots and visualization. As long as the code attempts to plot the **Fields** mentioned in the strategy, it is **ACCEPTABLE**. Do not reject based on layout or style or different timesteps. Especially for 1D+t problems
+
+
 ---
 ### OUTPUT FORMAT (JSON ONLY)
 
@@ -1353,15 +1413,15 @@ The objective is to generate **High-Fidelity Ground Truth Data** to train a Phys
 ---
 ### OUTPUT FORMAT
 
-**Section 1: Quantitative Scorecard**
+**Section 1: Status Decision**
+* **Status:** [APPROVED (if Score == 100 OR Saturation Reached) / REJECTED_FOR_REFINEMENT / REJECTED_FATAL]
+
+**Section 2: Quantitative Scorecard**
 * **Score Integrity:** [0-50]
 * **Score Accuracy:** [0-20]
 * **Score Details:** [0-15]
 * **Score Optimality:** [0-15]
 * **TOTAL SCORE:** [Sum of above]
-
-**Section 2: Status Decision**
-* **Status:** [APPROVED (if Score == 100 OR Saturation Reached) / REJECTED_FOR_REFINEMENT / REJECTED_FATAL]
 
 **DECISION LOGIC (The "5-Step Verification" Rule):**
 
@@ -1398,6 +1458,7 @@ The objective is to generate **High-Fidelity Ground Truth Data** to train a Phys
     * *Root Cause Analysis:* REFERENCE the [IMPLEMENTATION_DETAILS] to explain the artifact. (e.g., "The interface is smeared because the chosen Surface Flux is too dissipative for contact discontinuities." OR "The solution oscillates because the Polynomial Degree is too high for the amount of stabilization applied.")]
 * **Diagnosis:** [Name the phenomenon, e.g., "Numerical Dissipation," "Gibbs Phenomenon," or "Dispersion Error."]
 * **Targeted Improvements:** (Provide actionable advice for any category scoring < Max. **Consider cost vs. accuracy.**)
+    * **CRUCIAL*** Review  [TRIAL_HISTORY_LOG] to understand what was tried in the past and to make sure you DONT REPEAT THE SAME configurations e.g.
     * **For Integrity:** [Specific fix if Score < 50 (e.g., "Reduce CFL", "Fix Boundary Condition"). Else "None".]
     * **For Accuracy:** [Specific fix if Score < 20 (e.g., "Increase `polydeg` to 5", "Refine Grid"). Else "None".]
     * **For Details (Crucial for Euler):** [Specific fix if Score < 15.

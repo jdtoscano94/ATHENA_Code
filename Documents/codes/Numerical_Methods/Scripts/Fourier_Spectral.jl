@@ -19,6 +19,7 @@ using LinearAlgebra
 using SciMLOperators
 using Plots
 using NPZ
+using DiffEqCallbacks
 
 # %% [markdown]
 # # Cell 1: Spectral Operator Library
@@ -177,9 +178,27 @@ prob_split = SplitODEProblem(L_op, nonlinear_operator!,
 
 # %%
 println("Solving...")
-@time sol_split = solve(prob_split, ETDRK4(), dt=1e-5, saveat=t_save)
 
-println("✓ Time integration completed: $(length(sol_split.t)) steps")
+function step_callback(integrator)
+    @printf("t = %.4f / %.1f (%.1f%%)  \r", 
+            integrator.t, integrator.sol.prob.tspan[2], 
+            100*integrator.t/integrator.sol.prob.tspan[2])
+    flush(stdout)
+end
+
+cb = DiscreteCallback((u,t,integrator) -> true, 
+                      step_callback,
+                      save_positions=(false,false))
+
+@time sol_split = solve(prob_split, ETDRK4(),
+                        dt=1e-4,
+                        saveat=t_save,
+                        callback=cb,
+                        progress=true, 
+                        progress_steps=10)
+
+println("\n✓ Time integration completed: $(length(sol_split.t)) steps")
+
 
 # ----- Process Solution -----------------------------------------
 usol_fourier = hcat([sol_split.u[i] for i in 1:length(sol_split.t)]...)
