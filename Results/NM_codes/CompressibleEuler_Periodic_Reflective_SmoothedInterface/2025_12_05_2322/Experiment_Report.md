@@ -127,11 +127,10 @@ Recommendation:
 None
 
 ---
-
 ## Full Trial History
 | Run | Model Description | Error | Integrity | Accuracy | Details | Optimality | **Total** |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| 0 | Numerical implementation using Discontinuous Galerkin Spectral Element Method (DGSEM) in 2D plus time with polydeg=3 (LobattoLegendreBasis), surface_flux=flux_hll, volume_integral=VolumeIntegralShockCapturingHG (density indicator, flux_ranocha DG + flux_lax_friedrichs FV), AMR via IndicatorLöhner and ControllerThreeLevel on density, source terms for gravity g=1.0 (+y), domain [0,0.25]x[0,1.0], periodic x / slip-wall y BCs, time span (0.0,3.0), RDPK3SpFSAL49 integrator with CFL=0.5. | N/A | 0 | 0 | 0 | 0 | **0** |
+| 0 | Numerical implementation using Discontinuous Galerkin Spectral Element Method (DGSEM) in 2D plus time with polydeg=3 (LobattoLegendreBasis), surface_flux=flux_hll, volume_integral=VolumeIntegralShockCapturingHG (density indicator, flux_ranocha DG + flux_lax_friedrichs FV), AMR via IndicatorLöhner and ControllerThreeLevel on density, source terms for gravity g=1.0 (+y), domain [0,0.25]x[0,1.0], periodic x / slip-wall y BCs, time span (0.0,3.0), RDPK3SpFSAL49 integrator with CFL=0.5. | N/A | 40 | 20 | 12 | 12 | **84** |
 | 1 | Numerical implementation using Discontinuous Galerkin Spectral Element Method (DGSEM) in 2D plus time on a p4est adaptive quadtree mesh. Key parameters: polynomial degree polydeg=4, surface flux flux_hllc, initial_refinement_level=5 on domain [0,0.25]x[0,1], periodicity (true,false) for x-periodic and y-slip walls, shock capturing via IndicatorHennemannGassner on density for volume flux blending (flux_ranocha DG + flux_lax_friedrichs FV), additional AMR via IndicatorLöhner and ControllerThreeLevel on density (levels 4-6, interval 20), gravity source g=1.0 in +y direction, time span 0.0 to 3.0 with RDPK3SpFSAL49 LSRK integrator and CFL=0.5. Initial conditions, equations, and boundary conditions match exactly: tanh density profile, piecewise hydrostatic pressure, velocity perturbation. | N/A | 50 | 20 | 15 | 15 | **100** |
 
 
