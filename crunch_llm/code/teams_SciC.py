@@ -469,7 +469,7 @@ As per your system instructions:
         
         # 6. Parse the agent's report with retry logic
         print("Parsing report with AdvisorParser...")
-        max_retries = 3
+        max_retries = 10
         json_response = None
         parser_feedback = ""
         parsing_successful = False
@@ -950,11 +950,11 @@ Extract the critical signals (Status, Analysis, Recommendations) regardless of t
 
 **Your Required JSON Output:**
 ```json
-{
+{{
   "status": "APPROVED",
   "analysis": "Perfect execution. Score is 100.",
   "recommendations_for_planner": "None"
-}
+}}
 ```
 """
 
@@ -972,29 +972,23 @@ Your goal is to formulate a "Scientific Strategy Report" to solve the [USER_QUES
 4.  **[CRITIC_REPORT]:** Logical objections.
 
 **YOUR TOOLBOX:**
-* **Method of Characteristics (Analytical/Exact):** High priority for Hyperbolic problems (1D or 2D with reduction).
+* **Method of Characteristics (Analytical/Exact):**  HIGH priority for Hyperbolic problems!-> Use it as template for other exact solutions.
 * **Fourier Spectral Method:** Periodic domains.
 * **Discontinuous Galerkin Spectral Element Method in 1D**
 * **Discontinuous Galerkin Spectral Element Method in 2D plus time**
 * **Steady Continuous Galerkin in 2D**
-
-**FORMATTING RULES (CRITICAL FOR RENDERING):**
-1.  **Display Math:** ALWAYS use double dollar signs `$$` on their own line.
-    * *Correct:* `$$ \partial_t u + f(u)_x = 0 $$`
-    * *FORBIDDEN:* Do NOT use `\[ ... \]` or `\\begin{{equation}}`.
-2.  **Inline Math:** Use single dollar signs `$`.
-    * *Correct:* "The variable $u$ represents..."
-3.  **Headers:** Use Markdown headers `###`.
 
 ---
 ### Analysis Phase (Internal Monologue)
 1.  **Physics:** Hyperbolic/Elliptic? Shocks/Smooth?
 
 2.  **Feasibility Check (Exact Solution):**
-    * Can we use the **Method of Characteristics**? (e.g., 1D Conservation Laws, 2D Scalar Advection, or known Euler solutions like Sod/Vortex).
-    * *Strategy:* If an exact solution is feasible, **prioritize it** to generate perfect Ground Truth.
-3.  **Selection:** Pick the ONE best method.
+* Can we obtain an exact solution or similar?  IF IS FEASIBLE DERIVE IT AND RECOMMEND IT.
+* *CRITICAL RULE:* If an exact solution is avalable, **ALWAYS SELECT IT** as Main Method. 
 
+3.  **Selection:** Pick the ONE best method.
+    * *CRITICAL RULE:* If an exact solution  (or MoC) is feasible, **PRIOTITIZE it** to generate perfect Ground Truth. DONT WORRY ABOUT THE PRACTICAL IMPLEMENTATION ASSUME THAT THE AVAILABLE METHOD ON THE TOOLBOX IS EXTREMELY ROBUST.
+    
 ### OUTPUT FORMAT (Strict Adherence Required)
 
 **1. Problem Statement** 
@@ -1007,8 +1001,10 @@ Your goal is to formulate a "Scientific Strategy Report" to solve the [USER_QUES
 * **Expected Physics:** [e.g., "Shock formation at t=0.5"]
 
 **2. Strategic Methodology**
-* **Selected Main Method:** [Name from Toolbox]
-* **Rationale:** [1 sentence justification. e.g., "Problem allows for exact solution via MoC." OR "Viscosity requires DGSEM."]
+* Can obtain an exact solution or similar?  (Explain why or why not).
+        If you use the **Method of Characteristics** require * **Entropy Condition Root Selection** - For post-shock multi-valued regions, the implementation must select the entropy-satisfying branch.
+* *CRITICAL RULE:* If MoC derivation succeeds (produces implicit characteristic equations), **MANDATORY SELECT IT** as Main Method. Post-shock handling via entropy condition is automatic. Never reject MoC due to "shock concerns" - the implementation is exact for all time.
+* *CRITICAL RULE:* **For ANY exact or analytical solution** (MoC, separation of variables, Green's functions, etc.), you MUST list "Method of Characteristics (Analytical/Exact)" as the Main Method in the REQUIRED COMPONENTS section. This serves as the template for all exact solution implementations.
 
 **3. Implementation Requirements (CRITICAL)**
 * **Configuration:** As the agent to use "use template defaults." unless the advisor required. (Do NOT list N, K, or Time Stepper unless the Advisor explicitly requested a change).
@@ -1048,14 +1044,13 @@ Your goal is to formulate a "Scientific Strategy Report" to solve the [USER_QUES
 **Main Method:**
 [e.g., Method of Characteristics (Exact)]
 [OR: Discontinuous Galerkin Spectral Element Method in 1D]
+* *Rule:*  For exact solutions use Method of Characteristics as base template.
 
 **Enhancements:**
 * *Rule:* If the problem is **Steady-State** with high non-linearity (e.g., Re>100), you MUST list "Reynolds Number Continuation" to ensure convergence. 
 * *Rule:* Only list an enhancement if the physics demands it (e.g., Shocks -> "Shock Capturing").
 * *Rule:* Do NOT describe how it works (e.g., DO NOT say "Use Rusanov flux").
 * *Rule:* IF the [ADVISOR_REPORT] requested a specific change, list it here.
-* *For MoC:* [Coordinate Mapping]
-
 [e.g., Shock Capturing Indicator]
 [e.g., Reynolds Number Continuation]
 """
@@ -1071,7 +1066,7 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 4.  **[TRIAL_HISTORY_LOG]:** The definitive record of what we have already tried.
 
 **REFERENCE TOOLBOX (The ONLY Allowed Solvers):**
-* **Method of Characteristics (Analytical/Exact):** High priority for Hyperbolic problems (1D or 2D with reduction).
+* **Method of Characteristics (Analytical/Exact):** High priority for Hyperbolic problems.
 * **Fourier Spectral Method:** Periodic domains.
 * **Discontinuous Galerkin Spectral Element Method in 1D**
 * **Discontinuous Galerkin Spectral Element Method in 2D plus time**
@@ -1093,6 +1088,14 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 * *Derivation Trust Clause:*
     ** *DO NOT** challenge the Strategist's description of the physical setup if it is derived from the User's mathematical formulas.
     * *CRITICAL:* Assume the Strategist has correctly extracted the Initial Conditions. Only reject if the **Method** chosen is fundamentally wrong for the **Equation Type**.
+
+**2.5 The "Exact Solution Abandonment" Check (Priority Enforcement)**
+* *Scenario:* The [STRATEGIST_PLAN] shows:
+    1. Section 2 contains a successful derivation of an exact or analytical solution (MoC, separation of variables, etc.), BUT
+    2. The "Main Method" in the REQUIRED COMPONENTS section selects a numerical method instead (e.g., "DGSEM", "Fourier Spectral").
+* *Verdict:* **REJECT**.
+* *Explanation:* "Priority Violation: You successfully derived an exact/analytical solution in Section 2, but then selected a numerical method. Per the Toolbox hierarchy, exact solutions are MANDATORY when derivable. You must select 'Method of Characteristics (Analytical/Exact)' as the Main Method."
+* *CRITICAL EXEMPTION:* If the Strategist explicitly stated that the exact solution is infeasible due to entropy condition constraints or implementation limitations, then numerical methods are acceptable. Check Section 2 for such statements before rejecting.
 
 **3. The "Redundancy" Check (Memory)**
 * *Scenario:* The Strategist proposes a configuration (e.g., "DGSEM, N=3, no Enhancements") that is **identical** to a failed experiment listed in the [TRIAL_HISTORY_LOG].
@@ -1374,6 +1377,35 @@ The objective is to generate **High-Fidelity Ground Truth Data** to train a Phys
 4.  **[SUMMARY PLOT]:** A `summary_all.png` image containing solution fields.
 5.  **[STDOUT LOG]:** The raw log text (CFL usage, error norms, solver status).
 6.  **[IMPLEMENTATION_DETAILS]:** A technical summary of the executed code (Time Integrator, Polynomial Degree, Flux, Shock Capturing, AMR).
+
+
+**EXACT SOLUTION PRIORITIZATION (CRITICAL - BIDIRECTIONAL OVERRIDE AUTHORITY):**
+
+**1. Exact-to-Numerical Override (Use with EXTREME Caution):**
+* **Default Rule:** If the [STRATEGIST_REPORT] selected "Method of Characteristics (Analytical/Exact)" or any exact/analytical method, this choice should be **strongly preserved**.
+* **The ONLY acceptable reason to override to numerical methods:**
+    * **Impossibility Condition:** The exact solution is mathematically or computationally infeasible (e.g., implicit equations have no closed-form solution, characteristic equations cannot be inverted even numerically, boundary conditions are incompatible with the analytical approach).
+    * **Required Justification:** You MUST provide a rigorous mathematical explanation of why the exact method fails (e.g., "The characteristic equations reduce to $F(x,t) = 0$ which is transcendental and has no invertible form even with numerical root-finding").
+* **Forbidden Reasons for Override:**
+    * "Multiple shocks make it hard" → NO. Use entropy condition root selection.
+    * "Implementation is complex" → NO. Complexity is acceptable for perfect accuracy.
+    * "Computational cost" → NO. Exact solutions are always worth the cost for ground truth.
+
+**2. Numerical-to-Exact Override (Mandatory Action):**
+* **Scan for Missed Opportunities:** Review the [USER_REQUEST] and [STRATEGIST_REPORT] carefully.
+* **Trigger Conditions:**
+    * The problem has **periodic boundaries** AND **simple initial conditions** (e.g., sine waves, step functions).
+    * The PDE admits **separation of variables**, **Fourier series solutions**, or **Method of Characteristics**.
+* **Mandatory Action:** If ANY exact method is feasible but the [STRATEGIST_REPORT] selected a numerical method (DGSEM, Fourier Spectral, etc.):
+    * **Status:** `REJECTED_FATAL` or `CHANGE_ARCHITECTURE = True`
+    * **Required Feedback:** "Critical Strategy Error: An exact/analytical solution is available for this problem [state which method: MoC, Fourier series, etc.], but a numerical approximation was selected. For PINN ground truth generation, exact solutions are MANDATORY when available. The strategy must be revised to use 'Method of Characteristics (Analytical/Exact)' as the Main Method."
+
+**3. Verification Checklist (Apply Every Iteration):**
+* [ ] Is an exact solution theoretically possible for this PDE + BC + IC?
+* [ ] If YES: Is the current method exact? If NO → Flag for strategy change.
+* [ ] If current method is exact but failing: Is failure due to implementation bugs or true mathematical impossibility? Only override if latter.
+
+**Rationale:** Exact solutions provide **perfect ground truth** (zero discretization error) for PINN training. This is the highest priority. Numerical methods are a fallback only when exact methods are proven impossible.
 
 ---
 ### SCORING RUBRIC (Total: 100 Points | Passing: 75 Points)

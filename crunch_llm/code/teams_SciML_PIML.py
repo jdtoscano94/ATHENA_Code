@@ -1071,12 +1071,10 @@ This is your key decision for **Dirichlet and Initial Conditions**.
     * **Deduction Rule:** If you selected **Periodic Fourier Features** in Step 4, **REMOVE** `L_bc_periodic` from the count (it is satisfied by architecture). **CRITICAL:** Periodic Fourier Feature  inherently enforce periodicity - the network output is automatically periodic. Do NOT reject plans for "missing periodic BC enforcement" when periodic embeddings are used.
     * **Count:** `L_pde` (always 1) + `L_ic` (if time-dependent) + `L_bc_dirichlet` + `L_bc_neumann` + `L_data` (if applicable) 
     * **Decision Rule:**
-        * **IF count >= 3:** (MANDATORY)
-            * **Strategy:** **`Architectural (Hard Constraints)`** for IC and Dirichlet BCs
-            * **Action:** Define the **Ansatz Concept** (e.g., "Distance Function Ansatz")
-    * **CRITICAL: IF count>=3 AND BOUNDARIES ANALYZE 4.3 TO USE HARD CONSTRAINTS FOR THE DIRICHLET BOUNDARIES**
-
-
+        * **IF count < 5:**
+            * **Strategy:** ** Use separate loss terms. Hard constraints are not required.
+        * **IF count > 5:**
+            * **Strategy:** **`Architectural (Hard Constraints)`** for IC or Dirichlet BCs.
 **6. Loss Function Assembly (Symbolic Construction)**
 Construct the final Total Loss function ($L_total$) by selecting the active terms.
 
@@ -1196,6 +1194,13 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 
 **1. The "Physics vs. Strategy" Analysis (The Deep Logic Check)**
 
+* **Constraint H: Hard vs. Soft Constraints (The "Redundancy" Check):**
+        * *Trigger:* Strategist proposes "Periodic Embeddings" or "Hard-Constraint Architectures" (Ansatz).
+        * *The Physics:* If the architecture *mathematically guarantees* the Boundary Condition (REMEMBER, Periodic Fourier Features guarantee periodicity), an explicit Loss Term ($L_bc$) is **REDUNDANT** and harmful.
+        * *Verdict:* **REJECT** if the Strategist includes $L_bc$ when Hard Constraints are used (Double Counting).
+        * *Verdict:* **APPROVE** the removal of $L_bc$ if and *only if* the architecture strictly guarantees that condition.
+        * **Correction to Hallucinations:** Do NOT critique Periodic Embeddings for failing to encode periodicity. They work by definition.
+        
 * **The "Formulation" Check (Specific Physics Constraints):**
  * **Constraint A: Incompressible Flow (The Potential Ansatz Standard):**
             * *Trigger:* User asks for **Incompressible** Fluid Dynamics.
@@ -1261,8 +1266,8 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 
     * **Constraint E:The "Zero Viscosity" Trap:**
         * *Scenario:* Solving shock-forming PDEs (Euler, NS OR SIMILAR) THAT IS $\nu=0$ OR. $Re>10000$.
-        * *Verdict:* **REJECT**. Pure Strong Form fails at shocks. Must use small finite viscosity (e.g., $\nu=10^-4$) alongside Continuation.
-        
+        * *Verdict:* **REJECT**. Pure Strong Form fails at shocks. 
+
         * **MANDATORY VERIFICATION (Do not skip this check):**
             * **Step 1:** Check if the problem involves shocks/discontinuities (inviscid equations, high Re, Euler, etc.)
             * **Step 2:** If YES, verify the strategist includes:
@@ -1271,10 +1276,7 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
             * **Step 3:** If EITHER is missing → **REJECT** immediately
             
         * **Entropy Penalty Does NOT Bypass This Rule:**
-            * Entropy penalties enforce uniqueness but do NOT provide numerical regularization
-            * **BOTH are required:** Viscosity regularization + Entropy penalty
-            * *Verdict:* **REJECT** if plan says "inviscid equation (ν=0) + entropy penalty, no continuation"
-            * *Correct:* "Viscous equation with ν annealed to 1e-4 + entropy penalty + continuation"
+            * Entropy penalties enforce uniqueness but do NOT provide numerical regularization. DO NOT MENTION IT ON THE REPORT UNLESS THE STRATEGIST PROPOSE IT.
         
         * **The "Fake Continuation" Trap (Static Surrogate Cheating):**
             * *Scenario:* The Physics implies stability issues (e.g., High Reynolds, High Peclet, or Shocks/Inviscid forms) requiring Continuation.

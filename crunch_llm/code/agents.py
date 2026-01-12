@@ -17,8 +17,9 @@ from pathlib import Path # Import the Path object
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_anthropic import ChatAnthropic  # <--- NEW: Import for Claude
-
+from langchain_anthropic import ChatAnthropic 
+import json
+from langchain_core.exceptions import OutputParserException
 
 # Get the directory of the *current file* (e.g., /.../crunch_llm/code/)
 current_file_dir = Path(__file__).parent 
@@ -1078,17 +1079,29 @@ class StructuredAgent:
         self.chain = self.prompt | llm | parser
 
     def run(self, user_question: str, chat_history: List[BaseMessage] = None) -> Dict:
-        """
-        Stateless run.
-        Accepts external chat_history if provided, but does not store it.
-        Returns a parsed Python dictionary.
-        """
-        # Default to empty list if no history provided
-        history = chat_history or [] 
-        
-        result = self.chain.invoke({
-            "input": user_question,
-            "chat_history": history 
-        })
-        
-        return result
+            """
+            Stateless run with retry and fallback JSON parsing.
+            """
+            
+            history = chat_history or [] 
+            
+            max_retries = 2
+            for attempt in range(max_retries):
+                try:
+                    result = self.chain.invoke({
+                        "input": user_question,
+                        "chat_history": history 
+                    })
+                    return result
+                except OutputParserException as e:
+                    if attempt == max_retries - 1:
+                        try:
+                            raw_output = (self.prompt | self.llm).invoke({
+                                "input": user_question,
+                                "chat_history": history
+                            })
+                            result = json.loads(raw_output.content)
+                            return result
+                        except:
+                            raise e  
+                    continue
