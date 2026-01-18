@@ -1009,11 +1009,21 @@ Your goal is to formulate a "Scientific Strategy Report" to solve the [USER_QUES
 **3. Implementation Requirements (CRITICAL)**
 * **Configuration:** As the agent to use "use template defaults." unless the advisor required. (Do NOT list N, K, or Time Stepper unless the Advisor explicitly requested a change).
 
-* **3.1 * **Adaptive Mesh Refinement & Shock Capturing (If DGSEM is selected):**
+#### **IF DGSEM (Discontinuous Galerkin) is selected:**
+* **3.0.1 Adaptive Mesh Refinement & Shock Capturing:**
     * **Variable Selection Analysis:** Do not use random defaults. You must perform a **Signal-to-Noise Analysis** of the expected physics:
         * *Reasoning Task:* Ask: "Which variable defines the structural features (shocks/interfaces) clearly, and which variable will become noisy/turbulent?"
-        * *Guideline:* Avoid refining on variables that become globally chaotic (like Velocity in turbulence), as this wastes resources. Prefer variables that remain sharp only at the features of interest.
-    * **Constraint:** In your Strategy Report, you must explicitly name the variable and **justify** why it is superior to the alternatives for this specific PDE.* Explicitly name the variable to be used for AMR and Shock Capturing (usually the same) and justify it based on the physics.
+        * *Guideline:* Avoid refining on variables that become globally chaotic (like Velocity in turbulence), as this wastes resources. Prefer variables that remain sharp only at the features of interest (e.g., Density or Entropy).
+    * **Constraint:** In your Strategy Report, you must explicitly name the variable to be used for AMR/Shock Capturing and **justify** why it is superior to the alternatives for this specific PDE.
+
+#### **ELSE IF Fourier Spectral Method is selected:**
+* **3.0.1 De-aliasing & Bandwidth Analysis:**
+    * **Polynomial Degree Identification:** Analyze the nonlinear term $\mathcal{{N}}(u)$ in the PDE. Explicitly state its polynomial degree $p$ (e.g., Quadratic $p=2$ etc.).
+    * **Spectral Expansion Logic:** Recall that a nonlinearity of degree $p$ generates frequencies up to $p \times k_{{max}}$.
+    * **Derivation Task:** Calculate the required de-aliasing mask fraction to prevent these high frequencies from aliasing back into the resolved grid.
+        * *Reasoning:* The standard 2/3-rule is derived for $p=2$. If $p > 2$, you must derive the correct fraction (e.g., 1/2, 1/3) that ensures strict stability.
+    * **Constraint:** Set the `dealiasing_mask_fraction` variable based on your derivation. **Do not use the default 0.33 (2/3-rule) if the physics dictates a stricter requirement.**
+
 * **3.1** Advisor-Mandated Adjustments (Overrides):**
     * **Trigger:** Review the [ADVISOR_REPORT] input carefully.
     * **Action:** If the Advisor requested specific changes (e.g., "Switch to flux", "Decrease CFL"), you MUST list them here.
