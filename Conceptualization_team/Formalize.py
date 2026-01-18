@@ -36,108 +36,8 @@ import os
 from pathlib import Path
 # Our Libraries
 from crunch_llm.code.agents import *
-from crunch_llm.code.teams_SciC import *
 from crunch_llm.code.utils import *
-
-# %% [markdown]
-# # Initialization
-
-# %%
-coordinator_system_prompt = """
-You are the **Coordinator Agent**, a domain expert in Scientific Computing and Scientific Machine Learning. Your role is to interact with the user to formalize their research problem into a complete, well-specified User Request.
-
-## Your Responsibilities:
-
-1. **Extract Problem Specifications** through conversational dialogue:
-   - What PDE/equation are they solving? (e.g., Navier-Stokes, Burgers, Allen-Cahn)
-   - What are the physics parameters? (e.g., viscosity ν, Reynolds number Re, diffusion ϵ)
-   - What is the domain? (spatial dimensions, time interval)
-   - What are the boundary conditions? (Periodic, Dirichlet, Neumann, no-slip)
-   - What are the initial conditions?
-   - Is reference/validation data available? If so, where is it located?
-
-2. **Classify the Problem**:
-   - **Forward** vs **Inverse** problem
-   - **Steady-state** vs **Transient/Time-dependent**
-   - **PDE Type**: Elliptic, Parabolic, Hyperbolic, or Mixed
-   - Does it require **Scientific Computing** (numerical methods) or **Scientific Machine Learning** (PINNs, DeepONet)?
-
-3. **Check Well-Posedness**:
-   - Are boundary conditions sufficient?
-   - Are initial conditions provided (for time-dependent problems)?
-   - Are there any missing specifications?
-
-4. **Interactive Refinement**:
-   - If information is missing or ambiguous, ask targeted questions
-   - For common problems (e.g., "Burgers equation"), provide standard defaults but confirm with user
-   - For advanced users, discuss methodological preferences
-
-5. **Output Format**:
-   Once all information is gathered, produce a **complete User Request** in the following markdown format:
-```
-## Problem Statement
-[Clear description of the PDE and physics]
-
-## Equation(s)
-[Mathematical formulation with LaTeX]
-
-## Domain
-[Spatial and temporal domains]
-
-## Boundary Conditions
-[Complete specification of BCs]
-
-## Initial Conditions
-[For time-dependent problems]
-
-## Physics Parameters
-[All constants: Re, ν, ϵ, etc.]
-
-## Problem Type
-- Forward/Inverse
-- Steady/Transient
-- PDE Classification
-
-## Reference Data
-[Path to validation data, if available, with format description]
-
-## Special Instructions
-[Any critical notes or constraints]
-```
-
-## Interaction Style:
-
-- Be conversational but professional
-- For common problems, offer standard specifications to save time
-- Use your domain expertise to suggest reasonable defaults
-- Flag potential issues (e.g., "Re=1000 is high - this may form shocks")
-- Ask ONE question at a time to avoid overwhelming the user
-- When user says "yes" or confirms, move forward; don't re-ask
-
-## Examples of Your Expertise:
-
-**User**: "I want to solve Burgers equation"
-**You**: "Great! Let me help you specify this. Are you solving the **viscous** Burgers equation (ut + uux = νuxx) or the **inviscid** version (ut + uux = 0)?"
-
-**User**: "Viscous"
-**You**: "Perfect. What viscosity value ν would you like? A common benchmark is ν = 1/(100π) ≈ 0.00318. Would you like to use this, or a different value?"
-
-**User**: "Navier-Stokes, lid-driven cavity"
-**You**: "Understood - the classic lid-driven cavity benchmark. A few questions:
-1. What Reynolds number? (Common values: 100, 400, 1000)
-2. Steady-state or time-dependent simulation?
-3. Do you have reference data for validation?"
-
-## Current Conversation State:
-You are starting a new conversation. Greet the user and ask what problem they'd like to solve.
-"""
-
-# %%
-my_database_path ="/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/database_NM"
-my_database_path_functions="/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/database_Modules_google"
-my_database_path_functions_ollama="/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/database_Modules_ollama"
-database_name = 'Layers'
-codes_database = 'Numerical_Methods_opt'
+from crunch_llm.code.teams_conceptualization import *
 
 # %%
 ## Collection Team
@@ -146,94 +46,175 @@ coordinator_agent = memoryAgent(model='gpt-5.1',
                      system_prompt=coordinator_system_prompt,
                      model_provider='openai',     
                     )
+gatekeeper_agent = StructuredAgent(
+                    model='grok-4-1-fast-reasoning', 
+                    model_provider='grok',
+                    system_prompt=gatekeeper_system_prompt,
+                    verbose=False
+                )
+# %%
+# --- 2. Helper Functions ---
+
+def is_approved(user_response):
+    """
+    Analyzes the user's input to determine if they approved the plan.
+    Returns True for affirmative responses, False otherwise.
+    """
+    affirmative_keywords = [
+        'yes', 'proceed', 'approved', 'ok', 'agree', 'looks good', 
+        'correct', 'go ahead', 'fine', 'sure', 'perfect', 'done', 'agreed'
+    ]
+    
+    # Normalize input
+    response = user_response.strip().lower()
+    
+    # Check for direct matches or phrases starting with keywords
+    # e.g., "Yes, looks good" or "Proceed with this"
+    for word in affirmative_keywords:
+        if response == word or response.startswith(word):
+            return True
+            
+    return False
 
 # %%
+# --- 3. Interactive Chat Loop ---
+
 def chat_with_coordinator(coordinator_agent):
     """
     Interactive chat loop with the Coordinator agent.
+    - Detects when the agent proposes a plan.
+    - Uses is_approved() to verify user confirmation.
+    - Returns the plan text if approved, otherwise continues loop for refinement.
     """
     print("=" * 70)
     print("ATHENA Coordinator Agent")
     print("=" * 70)
     print("I'll help you formalize your computational research problem.")
-    print("Type 'done' when you're satisfied, or 'exit' to quit.\n")
+    print("Type 'exit' to quit.\n")
     
-    conversation_history = []
+    # State tracking
+    pending_plan = None
     
     # Initial greeting
     initial_message = "Hello! I'm the Coordinator agent. What problem would you like to solve today?"
     print(f"Coordinator: {initial_message}\n")
     
+    # Note: In a real conversation history, we'd append the initial message here.
+    # For this loop, we rely on the agent's memory mechanism.
+    
     while True:
-        # Get user input
-        user_input = input("You: ").strip()
+        # 1. Get User Input
+        if pending_plan:
+            user_input = input("You (Approve/Modify): ").strip()
+        else:
+            user_input = input("You: ").strip()
         
+        # 2. Check Exit Conditions
         if user_input.lower() in ['exit', 'quit']:
             print("\nExiting. Goodbye!")
-            break
+            return None
             
-        if user_input.lower() == 'done':
-            print("\nCoordinator: Let me compile the complete User Request...\n")
-            final_request = "Please now provide the complete, finalized User Request in the structured markdown format with all the information we discussed."
-            result = coordinator_agent.run(final_request)
-            
-            # Extract just the text response
-            if isinstance(result, dict) and 'output' in result:
-                response = result['output']
+        # 3. Handle Approval Logic (if a plan is pending)
+        if pending_plan:
+            if is_approved(user_input):
+                print("\n" + "="*30)
+                print(" PLAN APPROVED ")
+                print("="*30)
+                print("Forwarding to Gatekeeper...\n")
+                return pending_plan
             else:
-                response = str(result)
-            
-            print("=" * 70)
-            print("FINALIZED USER REQUEST")
-            print("=" * 70)
-            print(response)
-            print("=" * 70)
-            return response
-        
-        if not user_input:
-            continue
-        
-        # Get coordinator response
+                print("\n[System]: Plan rejected. Sending feedback to Coordinator for refinement...\n")
+                # The user's input (e.g., "No, change Re to 100") is passed to the agent below
+                pending_plan = None
+
+        # 4. Run Coordinator Agent
+        # Pass the user's input (either new info or feedback on the rejected plan)
         result = coordinator_agent.run(user_input)
         
-        # Extract just the text response from the dict
+        # Extract response text
         if isinstance(result, dict) and 'output' in result:
             response = result['output']
         else:
             response = str(result)
             
         print(f"\nCoordinator: {response}\n")
-    
+        
+        # 5. Check if Agent generated a new plan
+        # We look for the specific trigger phrase defined in the system prompt
+        if "reply with 'APPROVED', 'DONE', or 'AGREED'" in response:
+            pending_plan = response
+            print(">>> [System Alert]: A plan has been proposed. Please review above. <<<")
+
     return None
 
-
-# Alternative: Single-shot extraction for advanced users
-def quick_formalize(coordinator_agent, rough_description):
-    """
-    For users who want to provide a rough description and get a formalized request.
-    
-    Example:
-        rough = "Solve viscous Burgers with nu=0.01, periodic BCs, sine initial condition"
-        user_request = quick_formalize(coordinator_agent, rough)
-    """
-    prompt = f"""
-A user has provided this rough problem description:
-
-{rough_description}
-
-Please extract all the information provided and produce a complete User Request. 
-For any missing standard information (domain, time interval, etc.), ask clarifying questions.
-If this is a well-known benchmark problem, fill in standard defaults and note them.
-"""
-    response = coordinator_agent.run(prompt)
-    return response
 
 # %%
 user_request = chat_with_coordinator(coordinator_agent)
 
-# OR Quick mode for experienced users
-rough_spec = """
-I want to solve the viscous Burgers equation
-"""
 
+if user_request:
+    print("\n" + "=" * 70)
+    print("ATHENA Gatekeeper Agent")
+    print("=" * 70)
+    print("Analyzing Approved Plan and Routing...\n")
 
+    # Run the Gatekeeper
+    result = gatekeeper_agent.run(user_request)
+    
+    # Extract output: Handle if agent returns Dict directly vs String
+    try:
+        routing_packet = None
+        
+        # Case 1: result is a dict containing 'output' which IS the structured dict
+        if isinstance(result, dict) and 'output' in result:
+            if isinstance(result['output'], dict):
+                routing_packet = result['output']
+            elif isinstance(result['output'], str):
+                # Fallback: It's a string but clean JSON (as per user instruction)
+                routing_packet = json.loads(result['output'])
+        
+        # Case 2: result is the structured dict itself
+        elif isinstance(result, dict):
+            routing_packet = result
+            
+        # Case 3: Fallback parsing if string
+        else:
+            routing_packet = json.loads(str(result))
+
+        # Inject original request if missing
+        if "user_request" not in routing_packet:
+             routing_packet["user_request"] = user_request
+
+        # --- UPDATED PRINT LOGIC FOR MULTI-STAGE PLANS ---
+        print(f"Problem Name:    {routing_packet.get('problem_name', 'Unknown')}")
+        print(f"Description:     {routing_packet.get('description', 'No description')}")
+        print("-" * 30)
+        print("EXECUTION PIPELINE:")
+        
+        pipeline = routing_packet.get('pipeline', [])
+        if pipeline:
+            for step in pipeline:
+                stage_num = step.get('stage', '?')
+                path_id = step.get('path', 'UNKNOWN')
+                task = step.get('task', '')
+                print(f"  [Stage {stage_num}] -> Team {path_id} : {task}")
+        else:
+            print("  [Error] No pipeline stages found in JSON.")
+            
+        # Save to Disk
+        prob_name = routing_packet.get('problem_name', 'output').replace(" ", "_")
+        filename = f"ATHENA_Request_{prob_name}.json"
+        
+        with open(filename, 'w') as f:
+            json.dump(routing_packet, f, indent=4)
+            
+        print("-" * 30)
+        print(f"\n[System]: Request saved successfully to: {os.path.abspath(filename)}")
+        print("=" * 70)
+
+    except Exception as e:
+        print(f"Error processing Gatekeeper output: {e}")
+        print("Raw Result:", result)
+
+else:
+    print("\n[System]: No approved user request found. Terminating.")
