@@ -229,7 +229,7 @@ analyzer_agent = BasicAgent(
 
 *Note: Follow a similar procedure for **Numerical Methods** or **DeepONets** by navigating to their respective ingestion notebooks.*
 
-### 2. Setting up New Problems (Conversation Mode)
+### 2. Setting up New Problems (Running the Conceptualization Team)
 
 To set up a new scientific problem through an interactive dialogue with ATHENA, run the formalization script:
 
