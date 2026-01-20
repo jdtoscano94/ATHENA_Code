@@ -246,7 +246,7 @@ This script initiates a conversational agent that will guide you through definin
 
 To replicate the examples and benchmarks presented in the paper, navigate to the corresponding example folders.
 
-**Example: 2D Incompressible Navier-Stokes (IB2D)**
+**Example: 2D Inviscid Burgers (IB2D)**
 **Notebook Location:** `ATHENA/Examples_analytical_exact/IB2D.ipynb`
 
 **Running the Evaluation:**
