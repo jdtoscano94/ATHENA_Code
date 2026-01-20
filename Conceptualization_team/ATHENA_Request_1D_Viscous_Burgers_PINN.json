@@ -1,0 +1,22 @@
+{
+    "problem_name": "1D_Viscous_Burgers_PINN",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "A",
+            "task": "High-Fidelity Numerical Solution of Burgers Equation"
+        },
+        {
+            "stage": 2,
+            "path": "B",
+            "task": "PINN Training with Physics and Reference Data"
+        },
+        {
+            "stage": 3,
+            "path": "B",
+            "task": "PINN Evaluation and Analysis"
+        }
+    ],
+    "description": "Generate high-fidelity numerical reference solution for 1D viscous Burgers equation (SciC), then train physics-informed neural network using reference data and physics losses, followed by evaluation against reference (SciML-PINN).",
+    "user_request": "Understood: first a classical numerical solution (SciC), then a PINN that is validated against it.\n\nHere is the updated full specification.\n\n```markdown\n### Problem Statement\nSolve the 1D viscous Burgers equation for a single forward transient trajectory with periodic boundary conditions using a high-fidelity numerical solver first, then use that solution to train and/or validate a Physics-Informed Neural Network (PINN).\n\n### Equation(s)\nWe consider the viscous Burgers equation\n$$\nu_t + u\\,u_x = \\nu\\,u_{xx},\n$$\nwith viscosity\n$$\n\\nu = \\frac{1}{100\\pi}.\n$$\n\n### Domain\n- Spatial domain:\n  $$\n  x \\in [-1, 1]\n  $$\n- Temporal domain:\n  $$\n  t \\in [0, 1]\n  $$\n\n### Boundary Conditions\n- Periodic in space:\n  $$\n  u(-1,t) = u(1,t), \\quad u_x(-1,t) = u_x(1,t), \\quad \\forall t \\in [0,1].\n  $$\n\n### Initial Conditions\n- At \\(t = 0\\):\n  $$\n  u(x,0) = -\\sin(\\pi x), \\quad x \\in [-1,1].\n  $$\n\n### Physics Parameters\n- Viscosity:\n  $$\n  \\nu = \\frac{1}{100\\pi}\n  $$\n- No external forcing term.\n\n### Execution Strategy\n- **Stage 1: (A) SciC \u2014 High-Fidelity Numerical Solution**\n  - Solve the Burgers equation on the given space\u2013time domain using a standard numerical PDE solver.\n  - Enforce periodic boundary conditions and the given initial condition.\n  - Produce a reference solution \\(u(x,t)\\) on a chosen space\u2013time grid (sufficiently resolved for high accuracy).\n\n- **Stage 2: (B) SciML-PINN \u2014 PINN Training with Physics and Reference Data**\n  - Set up a PINN mapping \\((x,t)\\) to \\(u(x,t)\\).\n  - Enforce the Burgers PDE, initial condition, and periodic boundary conditions via physics-informed terms.\n  - Use the numerical solution from Stage 1 as reference data for supervised terms and for validation.\n  - Train the PINN and monitor its agreement with the numerical solution on the grid.\n\n- **Stage 3: (B) SciML-PINN \u2014 Evaluation and Analysis**\n  - Evaluate the trained PINN at arbitrary \\((x,t)\\) in the domain.\n  - Compare its predictions with the numerical reference solution to quantify accuracy and identify any failure modes (e.g., near shock-like gradients).\n\n### Validation Strategy\n- Use the Stage 1 numerical solution as the **ground truth**.\n- Perform:\n  - Pointwise comparisons of \\(u(x,t)\\) at multiple time slices.\n  - Error norms (e.g., over the space\u2013time grid).\n  - Checks of periodicity and smoothness in the PINN output.\n- Optionally visualize solution evolution to ensure qualitative agreement.\n\n### Reference Data\n- To be generated in Stage 1:\n  - A discrete space\u2013time grid \\(\\{x_i\\}_{i=1}^{N_x}\\), \\(\\{t_j\\}_{j=1}^{N_t}\\).\n  - Corresponding array \\(u_{i,j} \\approx u(x_i, t_j)\\).\n  - Stored in any convenient format (e.g., numeric arrays or tables) for later use in PINN training and validation.\n\n### Special Instructions\n- Focus on a **single trajectory** with fixed \\(\\nu = 1/(100\\pi)\\) and initial condition \\(u(x,0) = -\\sin(\\pi x)\\).\n- Ensure the numerical solver in Stage 1 is sufficiently resolved so that any PINN discrepancies are due to the PINN, not the reference.\n- Treat the PINN as a **model to be benchmarked** against the numerical solution, not as a replacement for it in this setup.\n```\n\nIf you agree with this plan, please reply with 'APPROVED', 'DONE', or 'AGREED'."
+}
