@@ -2,13 +2,10 @@
 
 # --- Configuration ---
 # Using the specific paths from your environment
-# 1. Load the module found on the system (Oscars's new version)
-module load julia/1.12.4s-adme
-
 # 2. Dynamically grab the path to the executable
-JULIA_EXEC=$(which julia)
+JULIA_EXEC="/Users/jdtoscan/.juliaup/bin/julia"
 
-PROJECT_ENV="/users/jdtoscan/data/jdtoscan/Learning_Julia"
+PROJECT_ENV="/Users/jdtoscan/Documents/Learning_Julia"
 
 # --- Safety ---
 # Exit immediately if a command exits with a non-zero status
@@ -59,4 +56,4 @@ fi
 # 1. Use the configured Project Environment
 # 2. Run the script
 # 3. Redirect stderr (2>) to the log file provided by Python
-"$JULIA_EXEC" --project="$PROJECT_ENV" "$JULIA_SCRIPT" 2> "$STDERR_FILE"
+"$JULIA_EXEC" --project="$PROJECT_ENV" --color=no "$JULIA_SCRIPT" 2> "$STDERR_FILE"

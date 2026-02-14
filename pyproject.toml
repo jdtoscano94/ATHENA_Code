@@ -9,38 +9,39 @@ description = "Project Athena LLM tools"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    # --- Strict LLM & LangChain Dependencies ---
-    "langchain==0.3.27",
-    "langchain-anthropic==0.3.22",
-    "langchain-chroma==0.2.6",
-    "langchain-google-genai==2.0.4",
-    "langchain-ollama==0.3.10",
-    "langchain-openai==0.3.35",
-    "langchain-text-splitters==0.3.11",
-    "langsmith==0.4.38",
+    # --- LLM & LangChain Dependencies ---
+    "langchain",
+    "langchain-anthropic",
+    "langchain-chroma",
+    "langchain-google-genai",
+    "langchain-ollama",
+    "langchain-openai",
+    "langchain-text-splitters",
+    "langchain-xai",
+    "langsmith",
 
-    # --- Model SDKs (Strict) ---
-    "anthropic==0.74.1",
-    "google-generativeai==0.8.5", # Gemini
-    "openai==2.6.1",
-    "ollama==0.6.0",
+    # --- Model SDKs ---
+    "anthropic",
+    "google-generativeai",  # Gemini
+    "openai",
+    "ollama",
 
     # --- Vector Database ---
-    "chromadb==1.2.2",
+    "chromadb",
 
     # --- App & API Frameworks ---
-    "fastapi==0.120.1",
-    "uvicorn==0.38.0",
-    "streamlit==1.51.0",
+    "fastapi",
+    "uvicorn",
+    "streamlit",
 
     # --- Data & Utilities ---
-    "pydantic==2.12.3",
-    "pydantic-settings==2.11.0",
-    "python-dotenv==1.2.1",
-    "numpy==2.3.4",
-    "pandas==2.3.3",
-    "pypdf==6.1.3",
-    "torch>=2.0.0" 
+    "pydantic",
+    "pydantic-settings",
+    "python-dotenv",
+    "numpy",
+    "pandas",
+    "pypdf",
+    "torch"
 ]
 
 [tool.setuptools.packages.find]

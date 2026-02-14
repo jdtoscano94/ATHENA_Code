@@ -1,7 +1,5 @@
 import os
-import sys
 from dotenv import load_dotenv
-from langchain_ollama import ChatOllama
 from langchain_chroma import Chroma
 from langchain_core.tools import tool
 from typing import Optional,Dict, List, Tuple 
@@ -10,19 +8,12 @@ import shutil #
 import re
 from IPython.display import display, Image
 from datetime import datetime 
-from langchain.agents import AgentExecutor
 from langchain_ollama import OllamaEmbeddings
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_tool_calling_agent
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser # Import the JSON parser
-from langchain_core.documents import Document
 import chromadb
 from pathlib import Path # Import the Path object
-from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_ollama import  OllamaEmbeddings
+from langchain_google_genai import  GoogleGenerativeAIEmbeddings
+from langchain_openai import  OpenAIEmbeddings
 
 # Report
 from reportlab.lib.pagesizes import A4
@@ -584,10 +575,10 @@ def run_code(project_dir, final_filename, final_filepath):
     shell_script_path = "" # Initialize
     
     if code_language == 'julia':
-        shell_script_path = "/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/Scripts/run_julia.sh"
+        shell_script_path = "/Users/jdtoscan/Documents/LLM/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/Scripts/run_julia.sh"
         
     elif code_language == 'python':
-        shell_script_path = "/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/Scripts/run_python.sh"
+        shell_script_path = "/Users/jdtoscan/Documents/LLM/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/Scripts/run_python.sh"
     
     else:
         print(f"❌ Error: No run script defined for language '{code_language}'. Cannot run.")
