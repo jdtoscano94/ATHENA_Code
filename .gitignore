@@ -32,3 +32,9 @@ pyproject_pre-langgraph_*.toml
 
 # --- Confidential peer-review materials ---
 Reviews/
+
+# --- Notebooks kept locally, not tracked ---
+*.ipynb
+
+# --- Large reference dataset (download from Google Drive, see README) ---
+Documents/codes/Data/Burger_1000_5000.mat

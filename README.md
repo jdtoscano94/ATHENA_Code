@@ -411,6 +411,30 @@ In short: the Conceptualization Team *produces* this specification, but if you c
 
 ## Step 3 — Evaluation
 
+Examples are driven from their request JSONs via `run_athena.py`, which dispatches
+each pipeline stage to the HENA loop:
+
+```bash
+python run_athena.py Conceptualization_team/ATHENA_Request_Rayleigh_Taylor_2D_Euler.json
+```
+
+(The original per-problem notebooks have been retired; their extracted run
+transcripts are kept alongside each example as `*_log.txt`.)
+
+### Reference data
+
+Most examples are self-contained (they generate their own reference). Three
+data-driven examples load an external file from `Documents/codes/Data/`:
+
+| Example | File | Size | Where it comes from |
+|---|---|---|---|
+| `Allen_Cahn_PINN` | `allen_cahn.mat` | 1.8 MB | included in the repo |
+| `Inverse_2D_NavierStokes_…_ReInference` | `ldc_Re500.npz` | 3.0 MB | included in the repo |
+| `Viscous_Burgers_DeepONet` | `Burger_1000_5000.mat` | 374 MB | **download from [Google Drive](https://drive.google.com/file/d/1Tr6a22SiMpgUlzbIHiBFAt8DRGXQ30E6/view)** into `Documents/codes/Data/` (too large for git) |
+
+The request JSONs reference these by absolute path under
+`Documents/codes/Data/`; adjust if you relocate the repo.
+
 To replicate the examples and benchmarks presented in the paper, navigate to the corresponding example folders.
 
 **Example: 2D Inviscid Burgers (IB2D)**

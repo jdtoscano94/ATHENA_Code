@@ -8,6 +8,6 @@
         }
     ],
     "description": "Physics-informed neural network (PINN) solution of the Allen-Cahn equation (SciML-PINN).",
-    "user_request": "Now lets solve the Allen Cahn equation in particular:\nu_t-epsilon u_xx+k(u^3-u)=0\n\nu(x,0)=x^2cos(pi x)\n\nThe domain in x goes from -1 to 1 and in t from 0 to 1 with periodic boundary conditions in x. Here epsilon=0.0001 and k=5\n\n### Reference Data: \nYou can find the data here:\n/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/codes/Data/allen_cahn.mat\n\nThe solutions are saved as a dictionary with keys 't', 'x' and 'usol'.",
+    "user_request": "Now lets solve the Allen Cahn equation in particular:\nu_t-epsilon u_xx+k(u^3-u)=0\n\nu(x,0)=x^2cos(pi x)\n\nThe domain in x goes from -1 to 1 and in t from 0 to 1 with periodic boundary conditions in x. Here epsilon=0.0001 and k=5\n\n### Reference Data: \nYou can find the data here:\n/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Data/allen_cahn.mat\n\nThe solutions are saved as a dictionary with keys 't', 'x' and 'usol'.",
     "source_notebook": "Examples_PINNs/Allen_Cahn.ipynb"
 }
