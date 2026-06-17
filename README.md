@@ -308,6 +308,23 @@ Ingestion reads the curated reference code under `Documents/codes/` and indexes 
 local [Chroma](https://www.trychroma.com/) vector databases. At run time the agents retrieve
 from these databases to ground their solutions in working examples.
 
+> ⚠️ **Verify every reference file runs on _your_ stack before ingesting it.**
+> The agents ground each solution in the retrieved templates, so a template that
+> is broken on your machine propagates that breakage into every generated
+> solution — and the failure surfaces deep in the HENA loop (or as a silently
+> wrong plot), not at ingestion time.
+>
+> This matters **especially for Julia**, where package APIs drift across versions.
+> Run each `Documents/codes/Numerical_Methods/Scripts/*.jl` through your
+> `Documents/Scripts/run_julia.sh` bridge — with **your** Julia version, **your**
+> `--project` environment, and the **thread count you will actually use** — and
+> confirm it exits cleanly *and* produces a correct `summary_all.png` before
+> ingesting. (Trixi.jl is a common offender: kernels can throw
+> `UndefRefError`/`TaskFailedException` under `--threads > 1`, and plotting calls
+> change between releases.) Apply the same check to the Python/JAX templates in
+> your `NABLA-SciML` environment. Re-run `--clear` ingestion after fixing a
+> template so the corrected version replaces the stale one.
+
 ### What gets generated
 
 A single script, `Ingestion/ingest.py`, builds **four knowledge bases** — one per `--class`:
