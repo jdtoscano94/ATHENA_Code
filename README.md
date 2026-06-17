@@ -308,7 +308,7 @@ Ingestion reads the curated reference code under `Documents/codes/` and indexes 
 local [Chroma](https://www.trychroma.com/) vector databases. At run time the agents retrieve
 from these databases to ground their solutions in working examples.
 
-> ⚠️ **Verify every reference file runs on _your_ stack before ingesting it.**
+> **Verify every reference file runs on _your_ stack before ingesting it.**
 > The agents ground each solution in the retrieved templates, so a template that
 > is broken on your machine propagates that breakage into every generated
 > solution — and the failure surfaces deep in the HENA loop (or as a silently
@@ -575,12 +575,12 @@ read precomputed result arrays from the per-run folders under
 `Results/<FAMILY>_codes/<Project>/<timestamp>/` using **repo-relative paths**
 (`../Results/...`), so they work wherever the repo is cloned.
 
-**Only the data is missing.** Everything needed to rebuild the figures is in the
-repo — the notebooks, the final figures, and the **generated script**
-(`.jl`/`.py`) next to every run folder. The only thing *not* committed is the
-heavy data those scripts produce (`.npz`, intermediate `.png`, reports under
-`Results/`), which is gitignored across all families purely for size. To
-regenerate a figure's inputs, run its script through the matching bridge:
+The repository tracks the notebooks, the final figures, and the script
+(`.jl`/`.py`) that produced each run folder. It does not track the bulk data
+those scripts write — the `.npz` arrays, intermediate plots, and reports under
+`Results/` — because they are large; this holds for every family. Each file is
+reproduced by rerunning the script that made it. To regenerate a figure's
+inputs, run its script through the matching bridge:
 
 ```bash
 # Julia (family A) — writes its .npz back into the same folder (uses @__DIR__)

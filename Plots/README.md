@@ -17,21 +17,17 @@ cloned — open any of them with the working directory set to this `Plots/` fold
 The standalone `*.png` files in this folder (ablation, comparison, total-score)
 are committed final figures produced by these notebooks.
 
-## Only the data is missing — regenerate it
+## Regenerating the data
 
-Everything needed to rebuild the figures is in the repo **except the heavy data
-outputs**. Concretely:
+The repository tracks the figure notebooks, the final `.png` figures, and the
+script (`.jl` or `.py`) that produced each run folder. It does not track the bulk
+result files those scripts write — the `.npz` arrays, intermediate plots, and
+reports under `../Results/` — because they are large; this applies to every
+family (PINN, DeepONet, and the Julia numerical solves). Nothing is lost: each
+file is reproduced by rerunning the script that made it.
 
-- ✅ **Committed:** the figure notebooks, the final `*.png` figures, and the
-  **generated script** (`.jl`/`.py`) that produced every run folder's data.
-- ❌ **Not committed (gitignored):** the bulky result outputs themselves —
-  `.npz` arrays, intermediate `.png`, and reports under `../Results/` — across
-  *all* families (PINN, DeepONet, and the Julia/NM solves). They are excluded
-  only because of size, not because anything is lost; each is reproduced by
-  rerunning its committed script.
-
-So if a notebook cell can't find its `.npz`, regenerate it by running that
-folder's script through the matching execution bridge:
+If a notebook cell cannot find its `.npz`, rerun that folder's script through the
+matching execution bridge:
 
 ```bash
 # from the repo root
