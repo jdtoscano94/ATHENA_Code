@@ -8,6 +8,5 @@
         }
     ],
     "description": "Numerical solution of the 2D anisotropic diffusion equation, validated against the exact solution (SciC).",
-    "user_request": "Let's solve the 2D Anisotropic Diffusion Equation with nu = 0.25:\n$$ \\frac{\\partial u}{\\partial t} = 0.25 \\left( \\frac{\\partial^2 u}{\\partial x^2} + 2 \\frac{\\partial^2 u}{\\partial x \\partial y} + \\frac{\\partial^2 u}{\\partial y^2} \\right) $$\n\nDomain: $(x,y) \\in [0, 2\\pi]^2$, $t \\in [0, 2]$.\nBCs: Periodic in both x and y.\n\nInitial Condition:\n$$ u(x,y,0) = \\sin(x+y) + \\cos(x-y) $$\n\nThe final plot must be saved as summary_all.png and include snapshots of the solution field.",
-    "source_notebook": "Examples_analytical_exact/DE2D.ipynb"
+    "user_request": "Let's solve the 2D Anisotropic Diffusion Equation with nu = 0.25:\n$$ \\frac{\\partial u}{\\partial t} = 0.25 \\left( \\frac{\\partial^2 u}{\\partial x^2} + 2 \\frac{\\partial^2 u}{\\partial x \\partial y} + \\frac{\\partial^2 u}{\\partial y^2} \\right) $$\n\nDomain: $(x,y) \\in [0, 2\\pi]^2$, $t \\in [0, 2]$.\nBCs: Periodic in both x and y.\n\nInitial Condition:\n$$ u(x,y,0) = \\sin(x+y) + \\cos(x-y) $$\n\nThe final plot must be saved as summary_all.png and include snapshots of the solution field."
 }

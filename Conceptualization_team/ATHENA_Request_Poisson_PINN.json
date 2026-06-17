@@ -8,6 +8,5 @@
         }
     ],
     "description": "PINN solution of the Poisson equation (SciML-PINN).",
-    "user_request": "Lets solve the 2D Poisson equation.\n\nThe equation is:\n$$\n-\\Delta u = f(x, y)\n$$\n\nwhere f(x, y) is chosen to satisfy the solution: u_{ex} = \\sin(4\\pi x)\\sin(4\\pi y)\n\nThe spatio-temporal domain is $(x, y) \\in [0, 1] \times [0, 1]$.\n\nThe boundary conditions are **Dirichlet** where $u = u_{ex}$ on the boundary.",
-    "source_notebook": "Examples_PINNs/Poisson.ipynb"
+    "user_request": "Lets solve the 2D Poisson equation.\n\nThe equation is:\n$$\n-\\Delta u = f(x, y)\n$$\n\nwhere f(x, y) is chosen to satisfy the solution: u_{ex} = \\sin(4\\pi x)\\sin(4\\pi y)\n\nThe spatio-temporal domain is $(x, y) \\in [0, 1] \times [0, 1]$.\n\nThe boundary conditions are **Dirichlet** where $u = u_{ex}$ on the boundary."
 }
