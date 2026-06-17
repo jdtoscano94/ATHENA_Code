@@ -396,7 +396,7 @@ python Conceptualization_team/Formalize.py --request-file my_problem.txt
 
 ### (Optional) Skipping the Conceptualization Team
 
-The Conceptualization Team is a **convenience layer** — its only job is to turn a loosely-worded idea into a complete, well-posed specification. **It is entirely optional.** If you already know your problem precisely, you can bypass it and drive the evaluation directly: each example notebook simply reads a `user_question` string (see the *User Query* cell), so you can paste your equation there verbatim and run the HENA loop.
+The Conceptualization Team is a **convenience layer** — its only job is to turn a loosely-worded idea into a complete, well-posed specification. **It is entirely optional.** If you already know your problem precisely, you can bypass it and drive the evaluation directly: hand-author a request JSON (copy any `Conceptualization_team/ATHENA_Request_*.json` as a template) with your `pipeline` and a self-contained `user_request`, then run it with `python run_athena.py <your.json>`. The `user_request` string is fed verbatim to the HENA loop as the problem spec.
 
 For the loop to succeed without the Coordinator's help, just make sure your `user_question` is **self-contained**. Include:
 
@@ -435,37 +435,120 @@ data-driven examples load an external file from `Documents/codes/Data/`:
 The request JSONs reference these by absolute path under
 `Documents/codes/Data/`; adjust if you relocate the repo.
 
-To replicate the examples and benchmarks presented in the paper, navigate to the corresponding example folders.
+### How `run_athena.py` works
 
-**Example: 2D Inviscid Burgers (IB2D)**
-**Notebook Location:** `ATHENA/Examples_analytical_exact/IB2D.ipynb`
+`run_athena.py` reads a request JSON and runs **every stage in its `pipeline`,
+in order**, dispatching each stage to the HENA loop for its family
+(`A`=SciC/Julia, `B`=PINN/JAX, `C`=Operator). You do not edit any code to run a
+case — you point the script at the JSON:
 
-**Running the Evaluation:**
-1.  Open the notebook.
-2.  **Critical:** Update all file paths in the notebook configuration cells to match your local machine's directory structure.
-3.  Run the cells. This process will generate a `Results` folder containing:
-    * Generated Code
-    * Simulation Data
-    * Run Reports for each iteration of the HENA loop.
-
-**Resuming from Checkpoints:**
-It is possible to start or continue experiments from earlier checkpoints saved in the `Results` folder. You can load the state of a previous run using the following code snippet inside the notebook:
-
-```python
-checkpoint_project_dir = '/path/to/your/Results/specific_run_folder'
-
-# Load the checkpoint data
-strategist_report, error_report, history_log_string, history, initial_code, filename = load_checkpoint_data(
-    checkpoint_project_dir,
-    load_code_only=False
-)
-
-print(error_report)
+```bash
+python run_athena.py Conceptualization_team/ATHENA_Request_<name>.json
 ```
 
-By providing the path to a checkpoint directory:
-* **Continue:** You can use the last `strategist_report` and `error_report` to seamlessly continue the optimization loop.
-* **New Run:** You can set `load_code_only=True` to extract just the `initial_code` and start a fresh run based on a previously successful script.
+Optional flags:
+
+| Flag | Effect |
+|------|--------|
+| `--runs N`    | Repeat the whole pipeline `N` times (for regret / variance analysis). |
+| `--max-iters N` | Cap the HENA loop at `N` iterations per stage (quick smoke test). |
+| `--stage N`   | Run **only** pipeline stage `N` (essential for multi-stage cases — see below). |
+
+Each run writes:
+* generated code, data, and per-iteration reports → `Results/<FAMILY>_codes/<ProjectName>/<timestamp>/`
+* the full multi-agent transcript → `crunch_llm/code/HENA_logs/<FAMILY>/hena_<family>_<name>_<timestamp>.txt`
+
+`APPROVED` from the advisor ends a stage; the project directory and log path are printed at the end.
+
+### Single-stage cases (most problems) — one command
+
+For every single-stage case, just run its JSON. Family `A` runs Julia, `B`/`C` run Python/JAX.
+
+| Case (run `python run_athena.py Conceptualization_team/ATHENA_Request_<file>.json`) | Family | Extra data |
+|---|---|---|
+| `Rayleigh_Taylor_2D_Euler` | A | — |
+| `Rayleigh_Taylor_2D_NavierStokes` | A | — |
+| `Kelvin_Helmholtz_2D_Euler` | A | — |
+| `Inviscid_Burgers_2D` | A | — |
+| `Viscous_Burgers_1D_Analytical` | A | — |
+| `Viscous_Burgers_1D_Numerical` | A | — |
+| `Anisotropic_Diffusion_2D` | A | — |
+| `BlackScholes_1D` | A | — |
+| `Cahn_Hilliard` | A | — |
+| `Wave_Equation_3D_Spherical` | A | — |
+| `Helmholtz_PINN` | B | — |
+| `Poisson_PINN` | B | — |
+| `KdV_PINN` | B | — |
+| `Inviscid_Burgers_PINN` | B | — |
+| `Allen_Cahn_PINN` | B | `allen_cahn.mat` (in repo) |
+| `Viscous_Burgers_DeepONet` | C | `Burger_1000_5000.mat` (download — see *Reference data*) |
+
+Example:
+
+```bash
+python run_athena.py Conceptualization_team/ATHENA_Request_Helmholtz_PINN.json
+```
+
+### Multi-stage cases (when there are many steps)
+
+Two cases chain families. `run_athena.py` will execute their stages in order from
+a single command, **but a later stage that consumes an earlier stage's output
+needs that output's path** — and the JSON ships with the path from the paper's
+original run, which won't match your fresh timestamped `Results/` folder. So for
+multi-stage cases run **stage by stage** and wire the path through:
+
+**`Inverse_2D_NavierStokes_LidDrivenCavity_ReInference` — Stage 1 (B, PINN) → Stage 2 (A, numerical)**
+
+This is the inverse Navier–Stokes case: Stage 1 trains an inverse PINN on the
+lid-driven-cavity data (`ldc_Re500.npz`, in repo) to infer the Reynolds number
+and the hidden v-field; Stage 2 runs a high-fidelity forward Julia solve at the
+inferred `Re` and validates against the same ground truth.
+
+```bash
+# 1) Run Stage 1 (the inverse PINN). Note the printed project_dir.
+python run_athena.py \
+  Conceptualization_team/ATHENA_Request_Inverse_2D_NavierStokes_LidDrivenCavity_ReInference.json \
+  --stage 1
+#    -> produces Results/PINN_codes/Inverse_NavierStokes_.../<timestamp>/results.npz
+
+# 2) Edit the JSON: in the "### STAGE 2" section, set the Stage-1 output path
+#    ("path:" under "The data was saved as:") to that results.npz from step 1.
+
+# 3) Run Stage 2 (the forward Julia verification at the inferred Re).
+python run_athena.py \
+  Conceptualization_team/ATHENA_Request_Inverse_2D_NavierStokes_LidDrivenCavity_ReInference.json \
+  --stage 2
+```
+
+> Running the JSON without `--stage` executes Stage 1 then Stage 2 back-to-back,
+> but Stage 2 will read whatever Stage-1 output path is currently written in the
+> JSON — so do one full run first (or pre-set the path) before relying on the
+> straight-through form.
+
+**`1D_Viscous_Burgers_PINN` — Stage 1 (A) → Stage 2 (B) → Stage 3 (B)**
+
+Generate a high-fidelity numerical reference (A), then train a PINN against it
+(B), then evaluate (B). This spec feeds the full description to each stage, so a
+straight `python run_athena.py …ATHENA_Request_1D_Viscous_Burgers_PINN.json`
+runs all three; if you want the PINN stages to read the exact Stage-1 reference
+file, run `--stage 1` first and point the PINN stages at its `Results/` output.
+
+### Resuming from a checkpoint
+
+Any run can be resumed from a prior `Results/` folder via `run_hena` (which
+`run_athena.py` wraps):
+
+```python
+from crunch_llm.code.HENA import run_hena
+
+# Continue a prior run (restore strategy, history, error report):
+run_hena("A", user_question, checkpoint_project_dir="Results/NM_codes/<Project>/<timestamp>",
+         load_code_only=False)
+
+# Or start fresh from a previously-successful script only:
+run_hena("A", user_question, checkpoint_project_dir="Results/NM_codes/<Project>/<timestamp>",
+         load_code_only=True)
+```
 
 ### A Note on GPU Requirements
 
@@ -476,8 +559,13 @@ VRAM requirements; you can point any agent at a cloud provider instead — see
 `model_provider` of any agent (for example, switching a structured agent to
 `grok-4-1-fast-reasoning` on `grok`).
 
-### A Note on Interface Choice
-We prioritized using **Jupyter Notebooks** over standard Python scripts for the core workflow. The primary reason for this choice is that notebooks automatically preserve the entire **chat history** and state. This enables researchers to visually inspect the full, multi-turn interaction between the diverse agents (Strategist, Advisor, Critic, etc.) and audit the reasoning process that led to the final solution.
+### A Note on Auditing the Agent Interaction
+Auditing the full, multi-turn interaction between the agents (Strategist, Advisor,
+Critic, etc.) matters as much as the final solution. Every run mirrors its entire
+multi-agent transcript to `crunch_llm/code/HENA_logs/<FAMILY>/`, so the complete
+reasoning trace is preserved as a plain-text record without needing a notebook.
+The original per-problem notebooks have been retired; their captured transcripts
+are kept next to each example as `*_log.txt`.
 
 ### Citation
 
