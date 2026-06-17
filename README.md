@@ -297,6 +297,24 @@ A healthy result prints `python OK [CudaDevice(id=0)]` and `julia OK` with empty
 most common setup issue — see the path table above).
 
 
+## (Optional) Driving setup and runs with Claude Code
+
+This repo ships a `CLAUDE.md` that gives [Claude Code](https://claude.com/claude-code)
+(or any coding agent) full project context, so the agent can act as a **setup/launch/monitor
+convenience layer** — entirely optional. In practice it can do the fiddly, machine-specific
+parts of the pre-flight above: point the two run bridges at your env, start the Ollama
+backend for the local agents, activate your conda env, launch `run_athena.py`, tail the
+per-run logs, and surface crashes. This is the part that is otherwise manual, so an agent
+mostly helps with **operational reproducibility** (getting it running on a new machine).
+
+> **Scope:** the agent is a convenience for setup and running — **not** the experiment runner.
+> Scientific reproducibility comes from the deterministic core: the pinned
+> `Conceptualization_team/ATHENA_Request_*.json` specs, `run_athena.py`, and the logged
+> transcripts under `crunch_llm/code/HENA_logs/`. Treat the agent as the driver of those
+> artifacts, not a substitute for them — results are reproduced from the scripts and logs,
+> not from any ad-hoc decisions the agent makes mid-run.
+
+
 # Tutorial
 
 The workflow has three stages: **(1) Ingestion** builds the reference-code knowledge bases,
