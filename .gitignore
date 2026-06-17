@@ -22,8 +22,11 @@ crunch_llm/code/agents_*.py
 *.synctex.gz
 
 # --- Generated run outputs ---
-# Track the generated per-figure scripts (.jl/.py) so the paper plots can be
-# regenerated; ignore the heavy data outputs (.npz/.png/.md etc.) they produce.
+# Track the generated per-figure scripts (.jl/.py); ignore the heavy data
+# outputs (.npz/.png/.md) by default. The specific data files the Plots/
+# notebooks read are curated (long time series sliced to the displayed frames)
+# and force-added (git add -f) despite this rule, so the figures reproduce from
+# a clone — see Plots/README.md.
 Results/**
 !Results/**/
 !Results/**/*.jl

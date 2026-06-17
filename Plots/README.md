@@ -17,17 +17,19 @@ cloned — open any of them with the working directory set to this `Plots/` fold
 The standalone `*.png` files in this folder (ablation, comparison, total-score)
 are committed final figures produced by these notebooks.
 
-## Regenerating the data
+## Data
 
-The repository tracks the figure notebooks, the final `.png` figures, and the
-script (`.jl` or `.py`) that produced each run folder. It does not track the bulk
-result files those scripts write — the `.npz` arrays, intermediate plots, and
-reports under `../Results/` — because they are large; this applies to every
-family (PINN, DeepONet, and the Julia numerical solves). Nothing is lost: each
-file is reproduced by rerunning the script that made it.
+The data these notebooks read is committed under `../Results/`, so the figures
+reproduce directly from a clone — just run the notebooks. To keep the repo small,
+the large time-resolved runs (compressible Euler / Navier–Stokes /
+Kelvin–Helmholtz, and the 2-D anisotropic-diffusion field) are stored as only the
+time slices the figures display; each colorbar is computed from those same
+slices. The DeepONet file keeps the test set and training diagnostics it plots
+and drops the unused training trajectories.
 
-If a notebook cell cannot find its `.npz`, rerun that folder's script through the
-matching execution bridge:
+The script (`.jl`/`.py`) that produced each run folder is also tracked, so you can
+regenerate any result from scratch instead of using the stored data — run that
+folder's script through the matching execution bridge:
 
 ```bash
 # from the repo root
@@ -44,7 +46,8 @@ cd Results/PINN_codes/<Project>/<timestamp> && \
 - **PINN / operator** scripts carry a fixed seed (`--SEED 9999`), so reruns
   reproduce the figures up to library / floating-point nondeterminism.
 
-Once the `.npz` files are back in place, run the notebook to rebuild the figure.
+A regenerated solve writes the *full* time series, not the displayed slices, so
+the figure reproduces but the folder grows back to its original size.
 
 ## Notes
 

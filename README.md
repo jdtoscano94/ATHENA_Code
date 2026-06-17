@@ -575,12 +575,16 @@ read precomputed result arrays from the per-run folders under
 `Results/<FAMILY>_codes/<Project>/<timestamp>/` using **repo-relative paths**
 (`../Results/...`), so they work wherever the repo is cloned.
 
-The repository tracks the notebooks, the final figures, and the script
-(`.jl`/`.py`) that produced each run folder. It does not track the bulk data
-those scripts write — the `.npz` arrays, intermediate plots, and reports under
-`Results/` — because they are large; this holds for every family. Each file is
-reproduced by rerunning the script that made it. To regenerate a figure's
-inputs, run its script through the matching bridge:
+The data each notebook reads is committed under `Results/`, so the figures
+reproduce directly from a clone — just run the notebooks. For the large
+time-resolved solves (the compressible Euler / Navier–Stokes / Kelvin–Helmholtz
+runs, and the 2-D diffusion field) only the time slices the figures actually
+display are stored, which keeps each file small; the colorbars are computed from
+those same slices. The DeepONet plot file keeps the test set and training
+diagnostics it plots, dropping the unused training trajectories.
+
+The generated script (`.jl`/`.py`) that produced each run folder is also tracked,
+so you can regenerate any result from scratch instead of using the stored data:
 
 ```bash
 # Julia (family A) — writes its .npz back into the same folder (uses @__DIR__)
@@ -593,8 +597,7 @@ cd Results/PINN_codes/<Project>/<timestamp> && \
 
 Julia solves are deterministic; the PINN/operator scripts carry a fixed seed
 (`--SEED 9999`), so reruns reproduce the figures up to library/floating-point
-nondeterminism. Once the `.npz` files are back in place, run the `Plots/`
-notebooks to rebuild the figures.
+nondeterminism.
 
 ### A Note on GPU Requirements
 
