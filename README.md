@@ -567,6 +567,33 @@ run_hena("A", user_question, checkpoint_project_dir="Results/NM_codes/<Project>/
          load_code_only=True)
 ```
 
+### Reproducing the paper figures
+
+The figures in the paper are assembled by the four notebooks in `Plots/`
+(`Analytical.ipynb`, `NM.ipynb`, `PINNs.ipynb`, `Regret_analysis.ipynb`). They
+read precomputed result arrays from the per-run folders under
+`Results/<FAMILY>_codes/<Project>/<timestamp>/` using **repo-relative paths**
+(`../Results/...`), so they work wherever the repo is cloned.
+
+The heavy data outputs (`.npz`, `.png`, reports) are **not committed** — they are
+gitignored to keep the repo small. What *is* committed next to every figure is
+the **generated script** (`.jl`/`.py`) that produced that folder's data. To
+regenerate a figure's inputs, run its script through the matching bridge:
+
+```bash
+# Julia (family A) — writes its .npz back into the same folder (uses @__DIR__)
+Documents/Scripts/run_julia.sh  Results/NM_codes/<Project>/<timestamp>/<script>.jl
+
+# Python / PINN (families B, C) — run FROM the folder so np.savez lands there
+cd Results/PINN_codes/<Project>/<timestamp> && \
+  /path/to/Documents/Scripts/run_python.sh <script>.py
+```
+
+Julia solves are deterministic; the PINN/operator scripts carry a fixed seed
+(`--SEED 9999`), so reruns reproduce the figures up to library/floating-point
+nondeterminism. Once the `.npz` files are back in place, run the `Plots/`
+notebooks to rebuild the figures.
+
 ### A Note on GPU Requirements
 
 The system is fully functional through cloud APIs and requires **no local GPU**. Historically,
