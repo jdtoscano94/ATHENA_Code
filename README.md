@@ -575,9 +575,11 @@ read precomputed result arrays from the per-run folders under
 `Results/<FAMILY>_codes/<Project>/<timestamp>/` using **repo-relative paths**
 (`../Results/...`), so they work wherever the repo is cloned.
 
-The heavy data outputs (`.npz`, `.png`, reports) are **not committed** — they are
-gitignored to keep the repo small. What *is* committed next to every figure is
-the **generated script** (`.jl`/`.py`) that produced that folder's data. To
+**Only the data is missing.** Everything needed to rebuild the figures is in the
+repo — the notebooks, the final figures, and the **generated script**
+(`.jl`/`.py`) next to every run folder. The only thing *not* committed is the
+heavy data those scripts produce (`.npz`, intermediate `.png`, reports under
+`Results/`), which is gitignored across all families purely for size. To
 regenerate a figure's inputs, run its script through the matching bridge:
 
 ```bash
