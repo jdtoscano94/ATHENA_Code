@@ -1,0 +1,194 @@
+[HENA] family=A | logging to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/HENA_logs/A_SciC/hena_A_Rayleigh_Taylor_2D_Euler_stage1_20260616_214441.txt
+--- Starting a new run (no resume directory specified). ---
+
+
+--- Code Creation Iteration: 0 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- 1. Calling Strategist Team ---
+
+=== 🧠 Starting Strategy Team (Proposer-Critic Loop) ===
+
+--- 🔄 Strategy Iteration 1/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**  
+Solve the 2D compressible Euler equations with gravity to simulate Rayleigh–Taylor instability in a stratified (heavy-over-light) configuration with a smoothed density interface, periodicity in \(x\), and reflective/free-slip walls in \(y\), over \(t\in[0,3]\).
+
+---
+
+**1. Mathematical Specification (Code-Ready Extraction)**
+
+* **Governing Equations:** Compressible Euler + gravity source in \(+y\):
+\[
+\partial_t
+\begin{pmatrix}
+\rho\\
+\rho u\\
+\rho v\\
+E
+\end{pmatrix}
++
+\partial_x
+\begin{pmatrix}
+\rho u\\
+\rho u^2 + p\\
+\rho u v\\
+(E+p)u
+\end{pmatrix}
++
+\partial_y
+\begin{pmatrix}
+\rho v\\
+\rho u v\\
+\rho v^2 + p\\
+(E+p)v
+\end{pmatrix}
+=
+\begin{pmatrix}
+0\\
+0\\
+\rho g\\
+\rho g\, v
+\end{pmatrix},
+\qquad
+p = (\gamma-1)\left(E - \tfrac12 \rho (u^2+v^2)\right).
+\]
+
+* **Domain:**  
+\[
+(x,y)\in[0,0.25]\times[0,1.0], \qquad t\in[0,3.0].
+\]
+
+* **Boundary Conditions:**
+  * \(x=0,\,0.25\): **Periodic** for \((\rho,\rho u,\rho v,E)\).
+  * \(y=0,\,1\): **Reflective / free-slip wall** (no penetration):
+    \[
+    v(x,0,t)=0,\quad v(x,1,t)=0,
+    \]
+    implemented as reflecting the normal momentum \(\rho v\) and leaving tangential momentum \(\rho u\) unchanged.
+
+* **Initial Conditions:** Let \(\rho_{heavy}=2.0\), \(\rho_{light}=1.0\).
+  * Density:
+    \[
+    \rho(x,y,0)= \rho(y)= 2.0 + (1.0-2.0)\cdot \frac12\left(1+\tanh(50(y-0.5))\right).
+    \]
+  * Pressure (given piecewise hydrostatic profile):
+    \[
+    p(x,y,0)=p(y)=
+    \begin{cases}
+    2y+1, & y<0.5,\\
+    y+1.5, & y\ge 0.5.
+    \end{cases}
+    \]
+  * Velocities:
+    \[
+    u(x,y,0)=0,
+    \]
+    \[
+    c(x,y,0)=\sqrt{\frac{\gamma\, p(y)}{\rho(y)}},
+    \]
+    \[
+    v(x,y,0)= -0.025\, c(x,y,0)\,\cos(8\pi x)\,\sin(\pi y)^6.
+    \]
+  * Total energy:
+    \[
+    E(x,y,0)= \frac{p(y)}{\gamma-1} + \frac12 \rho(y)\left(u(x,y,0)^2+v(x,y,0)^2\right).
+    \]
+
+* **Constants & Parameters:**
+  \[
+  \gamma=1.4,\qquad g=1.0 \text{ (acts in } +y\text{)},\qquad \mu=0,\qquad k=0.
+  \]
+
+* **Expected Physics:**  
+Classical RTI growth: interface at \(y\approx 0.5\) develops rising light “bubbles” and falling heavy “spikes”; compressibility generates acoustic activity; shocks are possible at later times due to steepening and wall interactions.
+
+---
+
+**2. Strategic Methodology**
+
+* **Can obtain an exact solution or similar?** No.  
+This is a 2D nonlinear hyperbolic system with a variable-density stratification and body force; no usable closed-form characteristic solution exists for the full 2D Euler+gravity RTI evolution.
+
+* **Selected main numerical approach (physics-driven):** **DGSEM in 2D plus time**.  
+Rationale: RTI creates sharp density gradients and potentially shocks; DGSEM handles hyperbolic conservation laws with high-order accuracy in smooth regions and robust shock handling when equipped with indicators/limiters.
+
+---
+
+**3. Implementation Requirements (CRITICAL)**
+
+* **Configuration:** use template defaults.
+
+#### **3.0.1 Adaptive Mesh Refinement & Shock Capturing**
+* **Variable Selection Analysis (Signal-to-Noise):**
+  * Structural feature of interest: the RTI interface and any shock-like compression regions.
+  * \(v\) becomes globally oscillatory/chaotic as RTI transitions to nonlinear mixing → poor refinement signal.
+  * Pressure can develop domain-wide acoustic waves → can trigger widespread refinement.
+  * **Density \(\rho\)** remains the cleanest marker of the interface (sharpest persistent gradient localized near spikes/bubbles).
+* **AMR/Shock-capturing variable (mandated):** **Density \(\rho\)**, justified as the most localized, feature-aligned diagnostic for interface tracking and steep fronts without being dominated by acoustics.
+
+#### **3.1 Advisor-Mandated Adjustments (Overrides):**
+None
+
+---
+
+**4. Visualization Strategy:**
+
+* **Field Selection (Analysis):**  
+Primary driver/diagnostic is **density \(\rho\)** (interface growth, mixing morphology). Secondary is **vertical velocity \(v\)** (buoyancy-driven motion; spike/bubble dynamics).
+* **Plotting:** 4 time steps, columns = time, rows = fields \((\rho, v)\).  
+Example times: \(t=\{0.0,\,1.0,\,2.0,\,3.0\}\).
+* **Saving Data:** save full state frequently for ground truth (e.g. `dt_save=0.1`).
+* **File:** save figure as **`summary_all.png`** (strict).
+* **CRITICAL (Julia):** set `colorbar=false`.  
+* **Style:** no fixed colormaps; allow autoscaling; plot only \(\rho\) and \(v\) (no derived quantities).
+
+---
+
+**5. Cross-Validation & Data Integration (Conditional)**  
+No external reference data paths provided → no cross-validation actions.
+
+---
+
+## REQUIRED COMPONENTS
+
+**Main Method:**  
+Discontinuous Galerkin Spectral Element Method in 2D plus time
+
+**Enhancements:**  
+Shock Capturing Indicator  
+Adaptive Mesh Refinement (refine on density \(\rho\))
+
+--- Critic report---
+APPROVED
+
+Validation:  
+1. **Hallucination Check (Main Method Scope):** The Main Method is exactly “Discontinuous Galerkin Spectral Element Method in 2D plus time,” which is one of the allowed toolbox methods and contains no extra qualifiers in that field. Enhancements (AMR, shock capturing) are correctly separated into the Enhancements section.
+
+2. **Physics Consistency Check:** The problem is a 2D nonlinear compressible Euler system with gravity; no exact MoC-type solution is expected. DGSEM is an appropriate high-order method for such hyperbolic conservation laws with possible shocks and complex interfaces. The gravity source is oriented in +y as requested, and boundary conditions (periodic in x, free-slip in y with v=0) match the user’s specification. Hydrostatic ICs and the perturbation form, including use of local sound speed c, are all transcribed consistently.
+
+3. **Exact Solution Abandonment Check:** Section 2 explicitly states that no usable exact solution exists for the full 2D Euler+gravity RTI evolution, so choosing a numerical method (DGSEM) does not violate the priority rule.
+
+4. **Redundancy Check (Memory):** Trial history is empty; this is the first run. There is no duplication of a prior failed configuration.
+
+5. **Micromanagement Check:** The plan explicitly says “use template defaults” for configuration and does not prescribe specific dt, polynomial degree, or other low-level numerical parameters. AMR and shock capturing are included only as enhancements, which is permitted and encouraged for this physics.
+
+6. **Data Blindness Check:** The user did not provide any external reference data or file paths; the plan correctly notes that no cross-validation actions are needed.
+
+7. **Compliance Check (User Adherence):**  
+   - Domain, time interval, and boundary conditions match exactly.  
+   - Gravity direction and magnitude, γ, and inviscid assumptions (μ=0, k=0) are respected.  
+   - Initial conditions for ρ, p, u, v, and the definition of c are copied in explicit LaTeX form exactly as specified, and E is constructed consistently from p, ρ, u, v and γ.  
+   - The requested figure name `summary_all.png` is explicitly mandated. No user constraints are contradicted.
+
+8. **Lazy Specification Check:** The ICs are fully written out in explicit equations (ρ(y), piecewise p(y), u=0, v(x,y) formula including c, and E formula). This is sufficient for direct coding without referring back to the prompt.
+
+9. **Advisor Compliance Check:** The Advisor Report is effectively empty (no explicit instructions), and the plan correctly lists “None” under Advisor-Mandated Adjustments. There is no insubordination or missing override.
+
+All required checks pass; the plan is consistent with the toolbox, the physics, and the user’s constraints.
+
+--- 2. Calling Collection Team ---
+--- Retrieval Iteration: 0 ---

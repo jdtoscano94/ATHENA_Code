@@ -1,0 +1,233 @@
+[HENA] family=A | logging to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/HENA_logs/A_SciC/hena_A_Rayleigh_Taylor_2D_Euler_stage1_20260616_190658.txt
+--- Starting a new run (no resume directory specified). ---
+
+
+--- Code Creation Iteration: 0 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- 1. Calling Strategist Team ---
+
+=== 🧠 Starting Strategy Team (Proposer-Critic Loop) ===
+
+--- 🔄 Strategy Iteration 1/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**  
+Solve the 2D inviscid compressible Euler equations with gravity to simulate Rayleigh–Taylor instability on a rectangular domain with periodicity in \(x\) and reflective slip walls in \(y\), from \(t=0\) to \(t=3\).
+
+---
+
+## 1. Mathematical Specification (Code-Ready Extraction)
+
+### Governing Equations
+Conservative form with gravitational source in **positive \(y\)**:
+\[
+\partial_t
+\begin{pmatrix}
+\rho\\
+\rho u\\
+\rho v\\
+E
+\end{pmatrix}
++
+\partial_x
+\begin{pmatrix}
+\rho u\\
+\rho u^2 + p\\
+\rho u v\\
+u(E+p)
+\end{pmatrix}
++
+\partial_y
+\begin{pmatrix}
+\rho v\\
+\rho u v\\
+\rho v^2 + p\\
+v(E+p)
+\end{pmatrix}
+=
+\begin{pmatrix}
+0\\
+0\\
+\rho g\\
+\rho g v
+\end{pmatrix}
+\]
+with equation of state
+\[
+p = (\gamma-1)\left(E-\tfrac12\rho(u^2+v^2)\right).
+\]
+
+### Domain
+\[
+(x,y)\in[0,0.25]\times[0,1.0],\qquad t\in[0,3.0].
+\]
+
+### Boundary Conditions
+- \(x=0,\,0.25\): **Periodic** for \(\rho,\rho u,\rho v,E\).
+- \(y=0,\,1\): **Reflective / free-slip wall** (no penetration):
+  \[
+  v=0 \text{ at } y=0,1,
+  \]
+  implemented as reflective BC on the normal momentum (\(\rho v\)) and even symmetry for tangential momentum (\(\rho u\)).
+
+### Initial Conditions
+Constants:
+\[
+\gamma=1.4,\quad g=1.0,\quad \rho_{\text{heavy}}=2.0,\quad \rho_{\text{light}}=1.0.
+\]
+
+Density (smoothed interface at \(y=0.5\)):
+\[
+\rho(x,y)=\rho(y)= 2.0 + (1.0-2.0)\cdot \frac12\left(1+\tanh\!\left(50(y-0.5)\right)\right).
+\]
+
+Pressure (given hydrostatic profile):
+\[
+p(x,y)=p(y)=
+\begin{cases}
+2y+1, & y<0.5,\\
+y+1.5, & y\ge 0.5.
+\end{cases}
+\]
+
+Speed of sound:
+\[
+c(x,y)=\sqrt{\frac{\gamma p(x,y)}{\rho(x,y)}}.
+\]
+
+Velocity:
+\[
+u(x,y)=0,
+\]
+\[
+v(x,y)= -0.025\; c(x,y)\; \cos(8\pi x)\; \sin(\pi y)^6.
+\]
+
+Total energy:
+\[
+E(x,y)=\frac{p(x,y)}{\gamma-1}+\frac12\rho(x,y)\left(u(x,y)^2+v(x,y)^2\right).
+\]
+
+### Expected Physics
+Heavy fluid below light fluid with gravity in \(+y\) is **unstable**: interface rolls up; compressible effects via acoustic adjustment; shocks are not expected initially but local steepening can occur at later times.
+
+---
+
+## 2. Strategic Methodology
+
+### Can obtain an exact solution or similar?
+No. Full 2D compressible Euler with gravity and finite-amplitude RTI has no closed-form solution; characteristics do not yield a tractable global analytic solution in 2D for this configuration.
+
+### Selected ONE best method
+**Discontinuous Galerkin Spectral Element Method in 2D plus time**  
+Rationale: hyperbolic, compressible, potentially under-resolved interfacial structures; DGSEM handles discontinuities/steep gradients and wall/periodic BCs cleanly while retaining high-order accuracy away from the interface.
+
+---
+
+## 3. Implementation Requirements (CRITICAL)
+
+### Configuration
+Use template defaults.
+
+### 3.0.1 Adaptive Mesh Refinement & Shock Capturing
+**Refinement / indicator variable (explicit choice):** **Density \(\rho\)**.  
+**Justification (signal-to-noise):**
+- Structural feature is the RT interface and its roll-up; \(\rho\) maintains a sharp, coherent contrast localized near the interface.
+- Velocities develop broad, oscillatory content and can become globally active; refining on \(u,v\) wastes resolution away from the interface.
+- Pressure is comparatively smooth due to near-hydrostatic balance plus acoustic adjustment; it is not the best interface tracker.
+
+Use shock-capturing/limiting driven by a density-based smoothness/gradient indicator.
+
+### 3.1 Advisor-Mandated Adjustments (Overrides)
+None.
+
+---
+
+## 4. Visualization Strategy
+
+### Field Selection (Analysis)
+Plot **Density \(\rho\)** and **Vertical velocity \(v\)** (dominant RT morphology + growth dynamics). No additional fields.
+
+### Plotting task
+- 4 time slices: \(t=\{0.0,\;1.0,\;2.0,\;3.0\}\).
+- Layout: 2 rows (fields) × 4 columns (time).
+
+### Saving data
+- Save **full solution state** (all conserved variables) frequently, e.g. `dt_save=0.1`.
+- Save figure as **`summary_all.png`** (strict).
+
+### Constraints
+- **Disable colorbars**: `colorbar=false` (Julia).
+- Auto scaling; no fixed colormaps.
+- No derived quantities.
+
+---
+
+## 5. Cross-Validation & Data Integration (Conditional)
+No external reference data or sensor files provided → not applicable.
+
+---
+
+# REQUIRED COMPONENTS
+
+**Main Method:**  
+- Discontinuous Galerkin Spectral Element Method in 2D plus time
+
+**Enhancements:**  
+- Shock Capturing Indicator (density-based)  
+- Adaptive Mesh Refinement (refine on \(\rho\))
+
+--- Critic report---
+[APPROVED]
+
+**Validation:**  
+1. **Hallucination Check (Main Method Scope):**  
+   - The Main Method is exactly one of the allowed toolbox entries: “Discontinuous Galerkin Spectral Element Method in 2D plus time”.  
+   - No extra qualifiers (e.g., AMR, shock capturing) are attached to the Main Method line. Enhancements are listed separately.  
+   → Pass.
+
+2. **Physics Consistency Check:**  
+   - Hyperbolic 2D compressible Euler with gravity is appropriately treated by DGSEM.  
+   - Gravity direction (+y) and sign in the source term are consistent with the user description.  
+   - Boundary conditions (periodic in x, reflective/free-slip in y) and the use of conservative form with ideal-gas EOS match the problem.  
+   → No fundamental mismatch between equation type and chosen method. Pass.
+
+3. **Exact Solution Abandonment Check:**  
+   - Section 2 explicitly states that no exact/analytic solution is feasible for the full 2D Euler RTI configuration.  
+   - No successful exact solution derivation is presented, so there is no requirement to choose Method of Characteristics.  
+   → Pass.
+
+4. **Redundancy Check (History):**  
+   - TRIAL_HISTORY_LOG shows no previous runs.  
+   - The proposed DGSEM 2D configuration is therefore not a repeat of a failed setup.  
+   → Pass.
+
+5. **Micromanagement Check:**  
+   - The plan explicitly says “Use template defaults” for configuration, without prescribing dt, polynomial degree, or mesh sizes.  
+   - Inclusion of AMR and shock capturing is allowed and encouraged for this type of problem.  
+   → Pass.
+
+6. **Data Blindness Check:**  
+   - USER_QUESTION does not provide external data files, sensors, or reference solutions.  
+   - Plan correctly notes that Cross-Validation & Data Integration is not applicable.  
+   → Pass.
+
+7. **Lazy Specification Check (ICs):**  
+   - The plan explicitly writes out:  
+     - Density formula with tanh interface.  
+     - Piecewise pressure formula.  
+     - Velocity formulas, including perturbation with cos(8πx) and sin(πy)^6 and definition of local sound speed.  
+     - Total energy E as a function of p, ρ, u, v.  
+   - These match the user-provided formulas in code-ready LaTeX form.  
+   → Pass.
+
+8. **Advisor Compliance Check:**  
+   - ADVISOR_REPORT is empty; there are no advisor-mandated overrides.  
+   - Section 3.1 correctly lists “None.”  
+   → Pass.
+
+--- 2. Calling Collection Team ---
+--- Retrieval Iteration: 0 ---

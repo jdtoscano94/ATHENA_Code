@@ -1,0 +1,783 @@
+/oscar/data/gk/jdtoscan/LLM/Crunch_LLM
+
+--- Import Mode: Loading ONLY code from: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Documents/codes/Numerical_Methods/Scripts/Empty/Burgers ---
+--- Successfully imported code: Empty.jl ---
+
+
+
+--- Code Creation Iteration: 0 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- 1. Calling Strategist Team ---
+
+=== 🧠 Starting Strategy Team (Proposer-Critic Loop) ===
+
+--- 🔄 Strategy Iteration 1/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**
+
+We must solve the 2D inviscid Burgers equation on a periodic square domain:
+\[
+\begin{aligned}
+&\text{PDE:} && u_t + u\,u_x + u\,u_y = 0, \quad (x,y)\in[0,4\pi]^2,\ t\in[0,2],\\
+&\text{BCs:} && u(x+4\pi,y,t) = u(x,y,t),\quad u(x,y+4\pi,t)=u(x,y,t),\\
+&\text{IC:} && u(x,y,0) = \frac{1}{3} + \frac{2}{3}\sin\left( \frac{x+y}{2} \right).
+\end{aligned}
+\]
+Goal: robust numerical solution up to time \(t=2\), with proper shock capture, and production of a summary plot `summary_all.png` with multiple time snapshots. Full solution data must be saved for later analysis.
+
+---
+
+**2. Strategic Methodology**
+
+### Method Selection
+
+**Main approach:** Finite Volume Method (FVM) on a uniform Cartesian grid with periodic boundaries, using a conservative formulation and a shock-capturing upwind flux.
+
+1. **Recasting PDE for FVM**
+
+Write the equation in conservative flux form:
+\[
+u_t + \partial_x f(u) + \partial_y g(u) = 0,
+\]
+with
+\[
+f(u) = \frac{1}{2}u^2,\quad g(u)=\frac{1}{2}u^2.
+\]
+This ensures conservation and aligns with standard finite volume discretization.
+
+2. **Spatial Discretization Strategy**
+
+- **Grid:**
+  - Uniform Cartesian grid on \([0,4\pi]^2\).
+  - Number of cells: choose \(N_x = N_y = N\) (e.g. \(N=256\) as a baseline; possibly 128 for initial tests).
+  - Cell centers: \(x_i, y_j\); cell spacing: \(\Delta x = \Delta y = 4\pi / N\).
+
+- **Finite Volume Formulation (cell averages):**
+  - Evolve cell-averaged solution \(u_{i,j}(t)\) using:
+    \[
+    \frac{d u_{i,j}}{dt} = -\frac{1}{\Delta x}\left( F_{i+1/2,j} - F_{i-1/2,j} \right)
+                            -\frac{1}{\Delta y}\left( G_{i,j+1/2} - G_{i,j-1/2} \right),
+    \]
+    where \(F_{i+1/2,j}\) and \(G_{i,j+1/2}\) are numerical fluxes in \(x\) and \(y\) directions, respectively.
+
+- **Numerical Flux:**
+  For inviscid Burgers with scalar state, we can use either:
+  - **Rusanov (local Lax–Friedrichs) flux** – robust, simple, diffusive but stable:
+    \[
+    F_{i+1/2,j} = \frac{1}{2}\Big(f(u_L) + f(u_R)\Big) - \frac{1}{2} a_{i+1/2,j}(u_R - u_L),
+    \]
+    where \(a_{i+1/2,j} = \max(|u_L|, |u_R|)\) is the local characteristic speed; similarly for \(G_{i,j+1/2}\) using \(g\).
+  - Or **Godunov flux for Burgers** (exact Riemann solver) if desired: slightly less diffusive but more complex; Rusanov is adequate as a first implementation and more robust.
+
+  Here \(u_L, u_R\) are interface states obtained from reconstruction (see next).
+
+- **Reconstruction:**
+  - To capture shocks without excessive smearing but avoid oscillations, use:
+    - **Second-order piecewise linear reconstruction** with slope limiter (e.g., minmod or MC limiter) in each direction.
+    - This provides a **MUSCL-type scheme**: second-order in smooth regions, first-order near shocks for stability.
+  - For each cell, compute slopes in \(x\) and \(y\) separately using limited centered differences.
+  - Interface states:
+    - In \(x\)-direction:
+      - \(u_L = u_{i,j} + \frac{1}{2}(\partial_x u)_{i,j}\Delta x\) for interface \(i+1/2\) from left cell.
+      - \(u_R = u_{i+1,j} - \frac{1}{2}(\partial_x u)_{i+1,j}\Delta x\) from right cell.
+    - Analogously for \(y\)-direction using \((\partial_y u)_{i,j}\).
+
+- **Periodic Boundary Conditions:**
+  - Implement periodicity via halo/ghost layers:
+    - For indices, use modular indexing or explicitly fill ghost cells:
+      - e.g. cell index \(i = -1\) maps to \(i = N-1\), \(i = N\) maps to \(i = 0\), etc.
+  - Ensure reconstruction and flux computation near boundaries use the periodic neighbors, so that all derivatives and slopes are consistent with periodicity.
+
+3. **Time Integration**
+
+- **Recommended method:** Strong-stability-preserving Runge–Kutta (SSP-RK2 or SSP-RK3).
+  - **SSP-RK3** provides high robustness for hyperbolic conservation laws with limiters.
+  - Each stage uses the semi-discrete spatial operator (flux divergences) with updated periodic BCs.
+
+- **CFL Condition (explicit scheme):**
+  - CFL estimate:
+    \[
+    \Delta t \le \text{CFL} \times \min\left(\frac{\Delta x}{\max |u|}, \frac{\Delta y}{\max |u|}\right),
+    \]
+    with CFL number around \(0.3\text{–}0.5\) for SSP-RK3 and second-order spatial scheme.
+  - Since \(|u|\) starts in \([-\tfrac{1}{3}, 1]\) but will evolve, recompute or at least update a global max |u| each time step to maintain stability.
+  - Use a global time step based on max wave speed across whole domain.
+
+4. **Shock Formation and Resolution Strategy**
+
+- For inviscid Burgers with sinusoidal-like initial data, shocks develop in finite time.
+- Strategy:
+  - Ensure limiter is active near steep gradients to avoid Gibbs-like oscillations.
+  - Accept some numerical diffusion at shocks for robustness.
+  - Use resolution (e.g., \(N=256\) or higher) to maintain reasonable accuracy for times up to \(t=2\).
+
+5. **Verification / Sanity Checks (Conceptual)**
+
+- Check:
+  - Conservation: monitor spatial integral of \(u\); it should be approximately constant (modulo numerical errors).
+  - Bounds: verify that \(u\) remains in a physically reasonable range (no extreme overshoots).
+  - Symmetry: initial condition is symmetric in \(x\) and \(y\) in the combination \(x+y\); early-time solution should respect that symmetry qualitatively.
+
+---
+
+**3. Implementation Requirements**
+
+**Advisor Adjustments:**  
+No prior advisor-based changes were requested; this is the initial strategy. Still, the following should be viewed as requirements for the implementation team:
+
+1. **Discretization Module**
+   - Set up:
+     - Uniform grid generation on \([0,4\pi]^2\).
+     - Cell-centered storage of \(u_{i,j}\).
+   - Periodic indexing utilities:
+     - Functions or mechanisms to wrap indices in both directions.
+   - Ghost-cell management (if used explicitly):
+     - Routines to fill periodic halo cells from opposite sides of the domain at every time step or RK stage.
+
+2. **Flux and Reconstruction Module**
+   - Implement:
+     - Piecewise linear reconstruction with limiter in x and y.
+       - Slope limiter options (minmod as default; possibly configurable).
+     - Numerical flux:
+       - Rusanov flux using physical flux functions \(f(u)=u^2/2, g(u)=u^2/2\).
+       - Computation of local wave speed \(a = \max(|u_L|,|u_R|)\) at each interface.
+   - Spatial operator:
+     - Routine that, given \(u\), returns the right-hand side \(du/dt\) via flux divergences with periodic BCs correctly applied.
+
+3. **Time Integration Module**
+   - Implement SSP-RK3 (or SSP-RK2 as backup) using the spatial operator.
+   - Adaptive time step based on CFL:
+     - Each step (or every few steps), compute global max \(|u|\) to set \(\Delta t\).
+     - Ensure the final time \(t=2\) is reached; adjust last step to land exactly on \(t=2\) if desired.
+
+4. **Initialization and Parameter Control**
+   - Initial condition:
+     - For each cell center \((x_i,y_j)\), set:
+       \[
+       u_{i,j}(0) = \frac{1}{3} + \frac{2}{3}\sin\left(\frac{x_i + y_j}{2}\right).
+       \]
+   - Input parameters:
+     - Grid resolution \(N_x, N_y\).
+     - CFL number.
+     - Final time \(T=2\).
+     - Time snapshot times for output and plotting.
+     - Choice of limiter (if multiple supported).
+   - Sanity outputs:
+     - Initial diagnostic: max, min of \(u\) at \(t=0\).
+     - Optional log of conservation measure (e.g., spatial mean of \(u\)).
+
+5. **Data Management**
+   - Save:
+     - Full field \(u(x,y,t)\) at prescribed times:
+       - Include at least: \(t=0\), an early pre-shock time, first shock time, intermediate times, and \(t=2\).
+       - Example set: \(t = 0, 0.25, 0.5, 1.0, 1.5, 2.0\) (adjust after preliminary runs if shock develops earlier/later).
+     - Storage format:
+       - Use a structured format that supports 2D arrays with metadata (grid spacing, times), e.g. HDF5, NetCDF, or similar.
+   - Keep:
+     - Time vector.
+     - Domain extents \([0, 4\pi]\times[0, 4\pi]\).
+     - Any global diagnostics (max, min, integral of \(u\)).
+
+---
+
+**4. Visualization Strategy**
+
+**Field Selection**
+
+- Primary field: scalar solution \(u(x,y,t)\).
+- Optionally for diagnostics (not necessarily in `summary_all.png`):
+  - Difference \(u(x,y,t) - \text{mean}(u(t))\) to emphasize structures.
+  - 1D slices (e.g., \(u(x,y_0,t)\)) along diagonals or axes if needed for debugging.
+
+**Layout**
+
+- File: `summary_all.png`.
+- Content:
+  - A grid of 2D contour or surface-like plots of \(u(x,y,t)\) at several times.
+  - Recommended: 2×3 or 3×2 subplots, for six representative times, e.g.
+    - \(t = 0\),
+    - \(t = 0.25\),
+    - \(t = 0.5\),
+    - \(t = 1.0\),
+    - \(t = 1.5\),
+    - \(t = 2.0\).
+  - Each subplot:
+    - Shows \(u(x,y,t_k)\) over the full domain \([0,4\pi]^2\).
+    - Use the same color map (or grayscale if preferred) across all subplots to allow comparison.
+    - Use consistent v-limits (min, max) across all times (e.g., based on global min/max over all saved snapshots) to make shock development visually clear.
+    - Add titles indicating the time, e.g., “t = 1.0”.
+
+- **Important constraint:**  
+  - Do **not** use colorbars if using Julia plotting backends, per instructions.
+  - Instead, rely on consistent colormap and axis labeling; optionally note color scale in text/legend outside the axes if needed.
+
+- Axes and annotations:
+  - Label axes: “x” and “y” (possibly only on outer plots to reduce clutter).
+  - Use equal aspect ratio if possible, so structures are not distorted.
+  - Include a global title or figure caption-like text indicating:
+    - “2D Inviscid Burgers solution, periodic \([0,4\pi]^2\), initial condition \(1/3 + (2/3)\sin((x+y)/2)\)”.
+
+**Saving**
+
+- Ensure:
+  - `summary_all.png` is saved at sufficient resolution (e.g. 150–300 dpi) for readability.
+  - All intermediate data (snapshots of \(u\) used to create the figure) are saved to disk in the chosen data format.
+  - The plotting script reads from these saved data files rather than from in-memory variables only, to decouple simulation and visualization stages.
+
+---
+
+**REQUIRED COMPONENTS**
+
+**Main Method:**
+- **Finite Volume Method (FVM) on a uniform grid** with:
+  - Conservative formulation,
+  - Second-order MUSCL reconstruction with slope limiter,
+  - Rusanov numerical flux (in both x and y),
+  - Explicit SSP-RK3 time integration under a CFL constraint.
+
+**Enhancements:**
+1. **Slope limiter module** to handle steep gradients and shocks without oscillations.
+2. **CFL-based adaptive timestep controller** to maintain stability as max |u| evolves.
+3. **Periodic boundary manager** (index wrapping or ghost-cell filling) to robustly enforce BCs.
+4. **Diagnostics module** for:
+   - Tracking min/max, spatial mean, possibly L2 norm versus time.
+5. **Data I/O module** for:
+   - Saving 2D fields at selected times,
+   - Storing parameters and metadata.
+6. **Visualization module** for:
+   - Reading stored fields,
+   - Building the multi-panel summary figure,
+   - Saving the final figure as `summary_all.png` without colorbars and with consistent scales.
+
+This strategy provides a robust, shock-capturing, and computationally straightforward approach suitable for 2D inviscid Burgers on a periodic domain with the required final visualization.
+
+--- Critic report---
+APPROVED
+
+Validation: The plan correctly addresses the user’s 2D inviscid Burgers problem on the periodic domain \([0,4\pi]^2\) with the specified initial condition and final time \(t=2\). It uses a conservative finite-volume formulation with appropriate fluxes, limiters, and SSP-RK time-stepping, which is physically consistent for shock-forming hyperbolic conservation laws. The visualization strategy explicitly produces `summary_all.png` containing multiple time snapshots, satisfying the user’s plotting requirement, and there are no conflicting advisor or trial-history constraints left unaddressed.
+
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: Context: The goal is to implement a 2D Finite Volume solver for the inviscid Burgers equation using Rusanov flux, MUSCL reconstruction, and SSP-RK3 time integration on a periodic grid.
+
+**Cell-by-Cell Implementation Map:**
+
+1.  **Cell 1: Solver and Discretization Initialization**
+    *   **Modify** - Import necessary packages (`LinearAlgebra`, `Plots`, `NPZ`, `Printf`) and define the slope limiter function (`minmod`) required for MUSCL reconstruction.
+
+2.  **Cell 2: Physics Model Definition**
+    *   **Modify** - Define the physical flux functions $f(u) = u^2/2$ and $g(u) = u^2/2$, and the wave speed calculation for the Rusanov flux.
+
+3.  **Cell 4: Spatial Discretization**
+    *   **Modify** - Implement the `compute_rhs!` function. This will handle 2D reconstruction (MUSCL), periodic boundary handling (ghost values or modular indexing), Rusanov flux computation at interfaces, and the final flux differencing.
+
+4.  **Cell 5: Computational Domain**
+    *   **Modify** - Define grid parameters ($N=256$, $L=4\pi$), generate cell-centered coordinates, and apply the initial condition $u_0(x,y)$.
+
+5.  **Cell 7: Additional Strategies**
+    *   **Modify** - Implement the SSP-RK3 time-stepping scheme (`step_ssprk3!`) which calls the spatial operator three times per step.
+
+6.  **Cell 8: Data I/O**
+    *   **Modify** - Initialize data structures to store simulation snapshots at specific target times ($t=0, 0.25, \dots, 2.0$).
+
+7.  **Cell 9: Solving**
+    *   **Modify** - Implement the main time loop. Calculate adaptive $\Delta t$ based on CFL, advance the solution using SSP-RK3, and save snapshots when target times are reached.
+
+8.  **Cell 12: Post-Processing**
+    *   **Modify** - Generate the `summary_all.png` visualization (2x3 grid of heatmaps) and save the full simulation data to a `.npz` file for verification.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 4', 'Cell 5', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 12'])
+Identified Cells: dict_keys(['Cell 1', 'Cell 2', 'Cell 4', 'Cell 5', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 12'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Solver and Discretization Initialization ---
+  - [Planner]: Instructions received:
+Cell 1: Solver and Discretization Initialization
+- Action: Import required packages (`LinearAlgebra`, `Printf`, `NPZ`, `Plots`) and define the `minmod` slope limiter function required for the MUSCL scheme described in the strategy.
+- New Code (lines 1-7):
+```julia
+using LinearAlgebra
+using Printf
+using NPZ
+using Plots
+
+# Minmod slope limiter for MUSCL reconstruction
+# Returns the smallest magnitude if signs match, otherwise 0 (to prevent oscillations)
+function minmod(a, b)
+    if a * b > 0
+        return sign(a) * min(abs(a), abs(b))
+    else
+        return 0.0
+    end
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-7: action='replace'
+    - Replacing lines 1-7 with 14 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Physics Model Definition  ---
+  - [Planner]: Instructions received:
+Cell 2: Physics Model Definition
+- Action: Define the physical flux function $f(u) = g(u) = u^2/2$ and the Rusanov numerical flux function as specified in the strategy.
+- New Code (lines 1-8):
+```julia
+# Physical flux function for 2D inviscid Burgers
+# f(u) = u^2 / 2, g(u) = u^2 / 2
+flux_burgers(u) = 0.5 * u^2
+
+# Rusanov (Local Lax-Friedrichs) numerical flux
+# Inputs: uL (left state), uR (right state)
+# Returns the numerical flux across the interface
+function rusanov_flux(uL, uR)
+    # Compute physical fluxes
+    fL = flux_burgers(uL)
+    fR = flux_burgers(uR)
+    
+    # Local wave speed estimate: max(|f'(u)|) = max(|u|) for Burgers
+    alpha = max(abs(uL), abs(uR))
+    
+    # Rusanov flux formula
+    return 0.5 * (fL + fR) - 0.5 * alpha * (uR - uL)
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-8: action='replace'
+    - Replacing lines 1-8 with 18 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Spatial Discretization ---
+  - [Planner]: Instructions received:
+Cell 4: Spatial Discretization
+- Action: Implement `compute_rhs!` to calculate the time derivative $du/dt$.
+- Action: Use MUSCL reconstruction with the `minmod` limiter (defined in Cell 1) to compute left/right interface states.
+- Action: Use `rusanov_flux` (defined in Cell 2) to compute fluxes at interfaces.
+- Action: Apply periodic boundary conditions using modular indexing (`mod1`).
+- New Code (lines 1-8):
+```julia
+# Spatial discretization using Finite Volume Method
+# - Periodic Boundary Conditions via modular indexing
+# - MUSCL reconstruction (2nd order) with minmod limiter
+# - Rusanov numerical flux
+
+function compute_rhs!(du, u, dx, dy, N)
+    # Reset RHS accumulator
+    du .= 0.0
+    
+    # --- X-Direction Fluxes ---
+    # Loop over all interfaces in X direction
+    # Interface i+1/2 is between cell i and cell i+1
+    for j in 1:N
+        for i in 1:N
+            # Periodic indices
+            im1 = mod1(i-1, N)
+            ip1 = mod1(i+1, N)
+            ip2 = mod1(i+2, N)
+            
+            # 1. Reconstruction
+            # Slope in cell i
+            diff_L_i = u[i,j] - u[im1,j]
+            diff_R_i = u[ip1,j] - u[i,j]
+            slope_i = minmod(diff_R_i, diff_L_i)
+            
+            # Slope in cell i+1
+            diff_L_ip1 = u[ip1,j] - u[i,j]
+            diff_R_ip1 = u[ip2,j] - u[ip1,j]
+            slope_ip1 = minmod(diff_R_ip1, diff_L_ip1)
+            
+            # Interface states at i+1/2
+            # Left state (from cell i)
+            uL = u[i,j] + 0.5 * slope_i
+            # Right state (from cell i+1)
+            uR = u[ip1,j] - 0.5 * slope_ip1
+            
+            # 2. Numerical Flux (Rusanov)
+            F = rusanov_flux(uL, uR)
+            
+            # 3. Update Residuals (Flux Differencing)
+            # F_i+1/2 leaves cell i, enters cell i+1
+            du[i,j]   -= F / dx
+            du[ip1,j] += F / dx
+        end
+    end
+    
+    # --- Y-Direction Fluxes ---
+    # Loop over all interfaces in Y direction
+    # Interface j+1/2 is between cell j and cell j+1
+    for i in 1:N
+        for j in 1:N
+            # Periodic indices
+            jm1 = mod1(j-1, N)
+            jp1 = mod1(j+1, N)
+            jp2 = mod1(j+2, N)
+            
+            # 1. Reconstruction
+            # Slope in cell j
+            diff_L_j = u[i,j] - u[i,jm1]
+            diff_R_j = u[i,jp1] - u[i,j]
+            slope_j = minmod(diff_R_j, diff_L_j)
+            
+            # Slope in cell j+1
+            diff_L_jp1 = u[i,jp1] - u[i,j]
+            diff_R_jp1 = u[i,jp2] - u[i,jp1]
+            slope_jp1 = minmod(diff_R_jp1, diff_L_jp1)
+            
+            # Interface states at j+1/2
+            uL = u[i,j] + 0.5 * slope_j
+            uR = u[i,jp1] - 0.5 * slope_jp1
+            
+            # 2. Numerical Flux
+            G = rusanov_flux(uL, uR)
+            
+            # 3. Update Residuals
+            du[i,j]   -= G / dy
+            du[i,jp1] += G / dy
+        end
+    end
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-8: action='replace'
+    - Replacing lines 1-8 with 80 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Computational Domain  ---
+  - [Planner]: Instructions received:
+Cell 5: Computational Domain
+- Action: Define grid parameters ($N=256$, $L=4\pi$).
+- Action: Generate cell-centered coordinates $x, y$.
+- Action: Initialize the solution array `u` with the specified initial condition $u(x,y,0) = 1/3 + (2/3)\sin((x+y)/2)$.
+- New Code (lines 1-7):
+```julia
+# Grid parameters
+const N = 256
+const L = 4.0 * pi
+const dx = L / N
+const dy = L / N
+
+# Cell centers
+x = [ (i - 0.5) * dx for i in 1:N ]
+y = [ (j - 0.5) * dy for j in 1:N ]
+
+# Initial Condition
+# u(x,y,0) = 1/3 + 2/3 * sin((x+y)/2)
+u = zeros(Float64, N, N)
+for j in 1:N
+    for i in 1:N
+        u[i,j] = 1.0/3.0 + 2.0/3.0 * sin((x[i] + y[j]) / 2.0)
+    end
+end
+
+# Pre-allocate arrays for RK3
+u_stage1 = zeros(Float64, N, N)
+u_stage2 = zeros(Float64, N, N)
+du = zeros(Float64, N, N)
+
+println("Grid initialized: N=$N, dx=$dx")
+println("Initial min/max: ", minimum(u), " / ", maximum(u))
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-7: action='replace'
+    - Replacing lines 1-7 with 26 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 7 ---
+
+--- Analizing: # ## Cell 7: Additional Strategies ---
+  - [Planner]: Instructions received:
+Cell 7: Additional Strategies
+- Action: Implement the SSP-RK3 time integration scheme.
+- Action: The function `step_ssprk3!` will take the current state `u`, the time step `dt`, and auxiliary arrays, and advance `u` by one step using the 3-stage method.
+- New Code (lines 1-8):
+```julia
+# SSP-RK3 Time Stepping Scheme
+# Strong Stability Preserving Runge-Kutta (3rd order, 3 stages)
+# u_1 = u_n + dt * L(u_n)
+# u_2 = 3/4 u_n + 1/4 u_1 + 1/4 dt * L(u_1)
+# u_{n+1} = 1/3 u_n + 2/3 u_2 + 2/3 dt * L(u_2)
+
+function step_ssprk3!(u, dt, dx, dy, N, u_stage1, u_stage2, du)
+    # Stage 1
+    compute_rhs!(du, u, dx, dy, N)
+    @. u_stage1 = u + dt * du
+    
+    # Stage 2
+    compute_rhs!(du, u_stage1, dx, dy, N)
+    @. u_stage2 = 0.75 * u + 0.25 * u_stage1 + 0.25 * dt * du
+    
+    # Stage 3
+    compute_rhs!(du, u_stage2, dx, dy, N)
+    @. u = (1.0/3.0) * u + (2.0/3.0) * u_stage2 + (2.0/3.0) * dt * du
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-8: action='replace'
+    - Replacing lines 1-8 with 19 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 8 ---
+
+--- Analizing: # ## Cell 8: Data I/O  ---
+  - [Planner]: Instructions received:
+Cell 8: Data I/O
+- Action: Initialize data structures to store simulation snapshots.
+- Action: Define target output times ($t=0, 0.25, 0.5, 1.0, 1.5, 2.0$).
+- Action: Create arrays to hold the saved fields (`saved_u`) and the actual times they were saved (`saved_times`).
+- New Code (lines 1-16):
+```julia
+# Data I/O Initialization
+
+# Target output times
+target_times = [0.0, 0.25, 0.5, 1.0, 1.5, 2.0]
+next_target_idx = 1
+
+# Storage for snapshots
+# We will store the full 2D field for each snapshot
+saved_u = []
+saved_times = Float64[]
+
+# Save initial condition (t=0)
+push!(saved_u, copy(u))
+push!(saved_times, 0.0)
+next_target_idx += 1
+
+println("Data I/O initialized.")
+println("Target times: ", target_times)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-16: action='replace'
+    - Replacing lines 1-16 with 18 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 9 ---
+
+--- Analizing: # ## Cell 9: Solving ---
+  - [Planner]: Instructions received:
+Cell 9: Solving
+- Action: Implement the main time loop.
+- Action: Calculate adaptive $\Delta t$ based on CFL condition ($CFL \approx 0.4$).
+- Action: Advance solution using `step_ssprk3!`.
+- Action: Check if a target output time is reached. If so, adjust the last step to hit the time exactly, save the snapshot, and proceed.
+- New Code (lines 1-6):
+```julia
+# Main Time Loop
+t = 0.0
+t_final = 2.0
+CFL = 0.4
+step = 0
+
+println("Starting time integration...")
+
+while t < t_final && next_target_idx <= length(target_times)
+    # 1. Compute adaptive time step
+    max_u = maximum(abs.(u))
+    if max_u < 1e-6
+        max_u = 1e-6 # Avoid division by zero
+    end
+    
+    # CFL condition: dt <= CFL * min(dx, dy) / max_speed
+    # max_speed is roughly max|u| * sqrt(2) in worst case diagonal, 
+    # but for dimension splitting logic, max|u| per dim is standard.
+    # We use a safe estimate.
+    dt = CFL * min(dx, dy) / max_u
+    
+    # 2. Adjust dt to hit next target time
+    target_t = target_times[next_target_idx]
+    if t + dt >= target_t
+        dt = target_t - t
+        is_target = true
+    else
+        is_target = false
+    end
+    
+    # 3. Advance solution
+    step_ssprk3!(u, dt, dx, dy, N, u_stage1, u_stage2, du)
+    global t += dt
+    global step += 1
+    
+    # 4. Save if target reached
+    if is_target
+        println("Reached target t = ", round(t, digits=4), " at step ", step)
+        push!(saved_u, copy(u))
+        push!(saved_times, t)
+        global next_target_idx += 1
+    end
+end
+
+println("Simulation complete. Final time: ", t)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-6: action='replace'
+    - Replacing lines 1-6 with 46 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 12 ---
+
+--- Analizing: # ## Cell 12: Post-Processing  ---
+  - [Planner]: Instructions received:
+Cell 12: Post-Processing
+- Action: Convert the list of saved snapshots `saved_u` into a 3D array `u_stack`.
+- Action: Generate the `summary_all.png` figure using `Plots.heatmap` in a 2x3 grid layout.
+- Action: Ensure consistent color limits (`clims`) across all subplots using global min/max.
+- Action: Save the full dataset (u, x, y, t) to `burgers.npz` for verification.
+- New Code (lines 1-26):
+```julia
+# --- Post-Processing and Visualization ---
+
+# 1. Consolidate Data
+# saved_u is a Vector of (N,N) matrices. Stack into (N, N, n_snaps)
+n_snaps = length(saved_u)
+u_stack = zeros(Float64, N, N, n_snaps)
+for k in 1:n_snaps
+    u_stack[:, :, k] = saved_u[k]
+end
+
+# Global color limits for consistent visualization
+cmin, cmax = minimum(u_stack), maximum(u_stack)
+
+# 2. Generate Summary Plot (2x3 Grid)
+println("Generating summary_all.png...")
+plts = []
+
+for k in 1:n_snaps
+    t_val = saved_times[k]
+    
+    # Determine axis labels (only on edges to reduce clutter)
+    # Row 1 (k=1,2,3), Row 2 (k=4,5,6)
+    show_y = (mod1(k, 3) == 1) # Left column
+    show_x = (k > 3)           # Bottom row
+    
+    p = heatmap(x, y, u_stack[:, :, k],
+        aspect_ratio = :equal,
+        clims = (cmin, cmax),
+        title = @sprintf("t = %.2f", t_val),
+        xlabel = show_x ? "x" : "",
+        ylabel = show_y ? "y" : "",
+        colorbar = false,
+        xlims = (0, 4*pi),
+        ylims = (0, 4*pi),
+        c = :viridis
+    )
+    push!(plts, p)
+end
+
+# Combine subplots
+summary_fig = plot(plts..., layout=(2, 3), size=(1000, 600))
+savefig(summary_fig, "summary_all.png")
+println("Saved summary_all.png")
+
+# 3. Save Data to NPZ
+npz_path = joinpath(@__DIR__, "burgers.npz")
+npzwrite(npz_path, Dict(
+    "t" => saved_times,
+    "x" => x,
+    "y" => y,
+    "u" => u_stack
+))
+println("Data saved to burgers.npz")
+
+# 4. Verification
+println("\n--- File Verification ---")
+file_size = filesize(npz_path)
+println("File size: $(file_size) bytes ($(round(file_size/1024/1024, digits=2)) MB)")
+
+data_check = npzread(npz_path)
+println("Keys in file: ", keys(data_check))
+println("Shape of u: ", size(data_check["u"]))
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-26: action='replace'
+    - Replacing lines 1-26 with 62 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ Numerical Finite Volume Method (FVM) on uniform 256x256 Cartesian grid over [0,4π]^2 with periodic boundaries via mod1 indexing. Conservative formulation with f(u)=g(u)=u^2/2 fluxes. Second-order MUSCL reconstruction using minmod limiter on forward/backward differences for slopes. Rusanov numerical flux with local speed max(|uL|,|uR|). SSP-RK3 time integration with adaptive CFL=0.4 timestep based on global max|u|, adjusted to hit target times exactly up to t=2. Initial condition exactly 1/3 + 2/3 sin((x+y)/2) at cell centers. Produces summary_all.png with 2x3 heatmaps of u at t=[0,0.25,0.5,1.0,1.5,2.0] using consistent global clims, equal aspect, no colorbars.
+Proposed name:Burgers_Periodic_SinSum\Question :
+Let's solve the 2D Inviscid Burgers' equation.
+Domain: $(x,y) \in [0, 4\pi]^2$, $t \in [0, 2]$.
+BCs: Periodic in both x and y.
+
+Initial Condition:
+ight) $,0) = rac{1}{3} + rac{2}{3}\sin\left(rac{x+y}{2}
+
+The final plot must be saved as summary_all.png it should include snapshots of several timesteps
+
+
+Created project directory: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/
+Successfully saved code to: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/Burgers_Periodic_SinSum.jl
+Attempting to run /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/Burgers_Periodic_SinSum.jl...
+
+--- [Streaming Output silently to /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/Burgers_Periodic_SinSum.jl.out] ---
+--- [End of Stream. Exit Code: 0] ---
+✅ Successfully ran Burgers_Periodic_SinSum.jl.
+--- [No Traceback. Sending last 20 lines to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: APPROVED
+Debugger Analysis: The code executed successfully without runtime errors. The log shows that the simulation completed as expected, reaching the target time t = 2.0 at step 104. The summary plot 'summary_all.png' was generated and saved successfully. The data was also saved to 'burgers.npz' with the correct structure (u array shape: 256×256×6, containing 6 time snapshots). The only message in stderr is 'GKS: cannot open display - headless operation mode active', which is not an error but an informational message from the plotting library indicating it's running in headless mode (without a display), which is expected behavior in many automated environments. The file verification confirms successful data output with a 3.0 MB file containing all required keys (t, x, y, u). All requirements from the user request have been met: the 2D Inviscid Burgers' equation was solved on the specified domain with periodic boundary conditions, the correct initial condition was applied, and the final plot with multiple timestep snapshots was saved as 'summary_all.png'.
+--- 5. Calling Advisor Team ---
+--- Running Advisor Team (Fail-Fast Strategy) ---
+Attempting to create CHRONOLOGICAL consolidated report: consolidated_report_chronological.pdf
+Found 2 reportable files. Building PDF in chronological order...
+✅ Successfully created chronological report at: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/consolidated_report_chronological.pdf
+Human-readable PDF report created.
+--- Found plot: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/summary_all.png ---
+✅ Found 'summary_all.png' at: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/summary_all.png
+Proceeding to multimodal analysis...
+Encoding image from: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/summary_all.png
+DEBUG: Image resized to 800x480
+Image encoded. Base64 length: 283294
+Sending multimodal input to AdvisorAgent...
+DEBUG - Input type: <class 'list'>
+DEBUG - Is multimodal: True
+DEBUG - Input list length: 2
+>>> Using MULTIMODAL mode (direct LLM call)
+--- Advisor Markdown Report Received ---
+**Section 1: Status Decision**
+* **Status:** APPROVED
+
+**Section 2: Quantitative Scorecard**
+* **Score Integrity:** 50
+* **Score Accuracy:** 20
+* **Score Quality:** 15
+* **Score Methodology:** 15
+* **TOTAL SCORE:** 100
+
+**Section 3: Feedback**
+* **Observation:** The simulation successfully solves the 2D Inviscid Burgers' equation. The initial condition (diagonal bands) evolves correctly according to the characteristic velocity field $\vec{v}=(u,u)$. As expected for this problem, the smooth sine wave steepens over time due to the nonlinear advection term.
+    *   **Physics Check:** The problem effectively reduces to a 1D Burgers equation along the diagonal $\xi = x+y$ with an effective advection speed of $2u$. Theoretical shock formation time is $T_b = 1 / \max(-v'(\xi)) = 1.5$. The plots show the gradient becoming vertical (shock formation) exactly around $t=1.5$, and a clear discontinuity is present at $t=2.0$.
+    *   **Numerics:** The shock interface is sharp with minimal smearing, indicating the MUSCL reconstruction and Minmod limiter are working effectively. There are no visible spurious oscillations (Gibbs phenomenon).
+* **Diagnosis:** The solution is physically accurate, stable, and high-quality. The methodology (FVM + MUSCL + SSP-RK3) is ideal for this hyperbolic conservation law.
+* **Targeted Improvements:**
+    * **General Advice:** No changes required. The current resolution ($256^2$) and scheme are sufficient for generating Ground Truth data for this specific problem setup.
+Parsing report with AdvisorParser...
+⚠️  Parser attempt 1/10 failed: ERROR: Missing keys: {'recommendations_for_planner', 'analysis'}. Required keys: {'recommendations_for_planner', 'status', 'analysis'}. Found: ['status', 'summary', 'data_saving', 'discrepancies']
+✅ Parser succeeded on attempt 2
+✅ Advisor APPROVED the scientific result.
+✅ Report updated: /users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes//Burgers_Periodic_SinSum/2026_01_10_1309/Experiment_Report.md
+--- Clearing agent short-term memories ---
+Chat history cleared.

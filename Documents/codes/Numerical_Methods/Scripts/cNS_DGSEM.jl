@@ -24,6 +24,11 @@ using NPZ
 import Printf
 using Statistics
 
+# Reinitialize Polyester's per-thread task buffers for the active thread count.
+# Without this, Trixi's threaded kernels throw `UndefRefError` in ManualMemory.jl
+# when Julia is launched with multiple threads (--threads > 1).
+Trixi.Polyester.reset_threads!()
+
 # %% [markdown]
 # # Cell 2: Physics Model Definition (Compressible Navier-Stokes)
 # 
@@ -498,7 +503,11 @@ end
 
 # %%
 println("Generating clean heatmaps...")
-plots_array = [] 
+plots_array = []
+
+# Collect the saved snapshot files and pick 4 evenly-spaced times for the 4x4 grid.
+files = sort([joinpath(npz_out, f) for f in readdir(npz_out) if endswith(f, ".npz")])
+indices = unique(round.(Int, range(1, length(files), length=4)))
 
 for idx in indices
     println(files[idx])

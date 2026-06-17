@@ -1,0 +1,13 @@
+{
+    "problem_name": "Viscous_Burgers_DeepONet",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "C",
+            "task": "DeepONet training and evaluation (SciML-Operator)."
+        }
+    ],
+    "description": "Operator network (DeepONet) mapping the initial condition to the full space-time solution of viscous Burgers with nu=1/1000 (SciML-Operator).",
+    "user_request": "Lets solve the viscous burgers equation the domain in x \\in[0,1] and t\\in [0,1] with periodic boundary conditions. Here $nu=1/(1000)$.\n\n# Problem\nThis will be an operator network that maps the initial condition to the full solution up to t=t_end (extracted from the data)\n\n### Reference Data: \nYou can find the data here:\n/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Data/Operator_Network_Examples/Burger_1000_5000.mat",
+    "source_notebook": "Examples_DeepONet/Burgers_nu1000.ipynb"
+}

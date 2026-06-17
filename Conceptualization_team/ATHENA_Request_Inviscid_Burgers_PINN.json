@@ -1,0 +1,13 @@
+{
+    "problem_name": "Inviscid_Burgers_PINN",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "B",
+            "task": "PINN setup, training, and evaluation (SciML-PINN)."
+        }
+    ],
+    "description": "PINN solution of the inviscid Burgers equation (SciML-PINN).",
+    "user_request": "Let's solve the 1D Inviscid Burgers' equation:\n$$ u_t + u u_x= 0 $$\n\nDomain: $x \\in [-1,1]$, $t \\in [0, 1]$.\nBCs: Periodic in x.\n\nInitial Condition:\n$$ u(x,y,0) = -\\sin(pi x)$$\n\nReference Data to compute error metrics:\n/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/NM_codes/Burgers_Periodic_SinPiX/2025_11_22_1730/burgers.npz\n\nThe code that generated the data saves burgers.npz in NPZ format containing keys: 't' (200,), 'x' (256,), 'usol' (200x256).",
+    "source_notebook": "Examples_PINNs/Inviscid_burgers.ipynb"
+}

@@ -1,0 +1,771 @@
+[HENA] family=A | logging to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/HENA_logs/A_SciC/hena_A_Rayleigh_Taylor_2D_Euler_stage1_20260616_234227.txt
+--- Starting a new run (no resume directory specified). ---
+
+
+--- Code Creation Iteration: 0 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- 1. Calling Strategist Team ---
+
+=== 🧠 Starting Strategy Team (Proposer-Critic Loop) ===
+
+--- 🔄 Strategy Iteration 1/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**  
+Solve the 2D compressible Euler equations with gravity to simulate Rayleigh–Taylor instability (heavy fluid below light fluid), on a periodic–slipwall box for \(t\in[0,3]\).
+
+---
+
+## **1. Mathematical Specification (Code-Ready Extraction)**
+
+### **Governing Equations**
+Conservative compressible Euler with gravitational source (gravity in \(+y\)) on \((x,y)\in\Omega\):
+\[
+\partial_t
+\begin{pmatrix}
+\rho\\ \rho u\\ \rho v\\ E
+\end{pmatrix}
++
+\partial_x
+\begin{pmatrix}
+\rho u\\ \rho u^2 + p\\ \rho u v\\ (E+p)u
+\end{pmatrix}
++
+\partial_y
+\begin{pmatrix}
+\rho v\\ \rho u v\\ \rho v^2 + p\\ (E+p)v
+\end{pmatrix}
+=
+\begin{pmatrix}
+0\\ 0\\ \rho g\\ \rho g v
+\end{pmatrix}
+\]
+with equation of state
+\[
+p=(\gamma-1)\left(E-\tfrac12\rho(u^2+v^2)\right),\qquad \gamma=1.4,\qquad g=1.0.
+\]
+
+### **Domain**
+\[
+(x,y)\in[0,0.25]\times[0,1.0],\qquad t\in[0,3.0].
+\]
+
+### **Boundary Conditions**
+- \(x=0,\,0.25\): **Periodic** for all conserved variables.  
+- \(y=0,\,1\): **Reflective / free-slip wall**:
+  \[
+  v(x,0,t)=0,\qquad v(x,1,t)=0,
+  \]
+  with tangential velocity \(u\) unconstrained (slip), implemented via reflective state in the normal component.
+
+### **Initial Conditions**
+Density (smoothed interface at \(y=0.5\)):
+\[
+\rho(x,y,0)=\rho(y)=2.0+(1.0-2.0)\cdot \frac12\left(1+\tanh\!\big(50(y-0.5)\big)\right).
+\]
+
+Pressure (given hydrostatic piecewise profile):
+\[
+p(x,y,0)=p(y)=
+\begin{cases}
+2y+1, & y<0.5,\\
+y+1.5, & y\ge 0.5.
+\end{cases}
+\]
+
+Velocities:
+\[
+u(x,y,0)=0,
+\]
+\[
+c(x,y,0)=\sqrt{\frac{\gamma p(y)}{\rho(y)}},
+\]
+\[
+v(x,y,0)=-0.025\; c(x,y,0)\;\cos(8\pi x)\;\sin(\pi y)^6.
+\]
+
+Total energy initialized consistently:
+\[
+E(x,y,0)=\frac{p(y)}{\gamma-1}+\frac12\rho(y)\left(u(x,y,0)^2+v(x,y,0)^2\right).
+\]
+
+### **Constants & Parameters**
+\[
+\gamma=1.4,\quad g=1.0,\quad \mu=0,\quad k=0.
+\]
+
+### **Expected Physics**
+Hydrostatically supported stratification with a seeded vertical-velocity perturbation triggers Rayleigh–Taylor growth: rising light fluid and falling heavy fluid, steepening density gradients and eventual shocklets/compressible wave activity; dominant observable is the evolving **density interface**.
+
+---
+
+## **2. Strategic Methodology**
+**Can obtain an exact solution or similar?** No. This is a fully 2D, nonlinear, compressible, variable-coefficient initial value problem with gravity; no closed-form solution exists. Method of Characteristics is not globally usable as an exact ground-truth generator in 2D with interacting waves and emerging discontinuities.
+
+**Selected ONE best method:** **Discontinuous Galerkin Spectral Element Method in 2D plus time**.  
+Physics-driven rationale: compressible Euler + gravity will develop sharp interfaces and compressible waves; DGSEM is designed for high-order accuracy in smooth regions while remaining robust near steep gradients when paired with shock capturing.
+
+---
+
+## **3. Implementation Requirements (CRITICAL)**
+
+### **Configuration**
+Use template defaults.
+
+### **3.0.1 Adaptive Mesh Refinement & Shock Capturing**
+**AMR / shock-capturing indicator variable: \(\rho\) (density).**
+
+**Signal-to-Noise Analysis (justification):**
+- **Density \(\rho\)** carries the primary coherent structure (the heavy/light interface) and remains sharply localized to the mixing layer; it is the cleanest marker of RT growth.
+- **Velocity** (especially \(v\)) becomes volume-filling and increasingly complex as bubbles/spikes roll up; refining on it wastes resolution globally.
+- **Pressure** tends to be comparatively smoother (except acoustic features) and is not the main instability marker.
+
+Therefore: refine/capture on **density gradients / density-based sensor**.
+
+### **3.1 Advisor-Mandated Adjustments (Overrides)**
+None.
+
+---
+
+## **4. Visualization Strategy**
+**Primary fields to plot:** **Density \(\rho\)** and **vertical velocity \(v\)** (drivers/manifestations of RT growth).  
+Plot at **4 times**: \(t=\{0.0,\;1.0,\;2.0,\;3.0\}\).  
+Layout: **2 rows (fields) × 4 columns (time)**.  
+Save figure as: **`summary_all.png`**.
+
+**Saving data (ground truth for later analysis):** save full state \((\rho,\rho u,\rho v,E)\) frequently (e.g. `dt_save=0.1`).
+
+**Julia plotting constraint:** set **`colorbar=false`** explicitly.  
+Do not fix colormaps; allow autoscaling. Do not plot derived fields.
+
+---
+
+## **5. Cross-Validation & Data Integration (Conditional)**
+No external reference data or sensor files provided ⇒ no cross-validation actions.
+
+---
+
+# REQUIRED COMPONENTS
+
+**Main Method:**  
+- Discontinuous Galerkin Spectral Element Method in 2D plus time
+
+**Enhancements:**  
+- Shock Capturing Indicator (density-based)  
+- Adaptive Mesh Refinement (refine on \(\rho\))
+
+--- Critic report---
+APPROVED
+
+Validation:  
+1. **Hallucination Check (Main Method Scope)**  
+   - The Main Method is exactly: “Discontinuous Galerkin Spectral Element Method in 2D plus time.”  
+   - This is one of the allowed Toolbox methods (DGSEM in 2D).  
+   - No extra qualifiers (e.g., “with AMR”) are appended in the Main Method line.  
+   ⇒ Pass.
+
+2. **Physics Consistency Check**  
+   - The problem is the 2D compressible Euler equations with gravity (hyperbolic with source term).  
+   - DGSEM in 2D plus time is an appropriate high-order method for such systems, especially with expected steep gradients and potential shocklets.  
+   - The strategist correctly keeps the hydrostatic and IC formulas as given by the user (no contradiction of gravity direction or EOS).  
+   ⇒ Pass.
+
+3. **Exact Solution Abandonment Check**  
+   - Section 2 explicitly states that an exact solution is not available for this fully 2D nonlinear IVP.  
+   - No successful analytical or MoC solution is derived in the plan.  
+   - Therefore, choosing a numerical DGSEM method does not violate the priority rule.  
+   ⇒ Pass.
+
+4. **Redundancy Check (Trial History)**  
+   - TRIAL_HISTORY_LOG indicates no prior runs.  
+   - Thus, the chosen configuration cannot duplicate a failed configuration.  
+   ⇒ Pass.
+
+5. **Micromanagement Check**  
+   - The plan states “Use template defaults” for configuration and does not prescribe specific dt, polynomial degree, or grid sizes.  
+   - Inclusion of AMR and shock capturing is explicitly allowed, even if the user did not request them; they are treated as best practices.  
+   - Visualization choices are within allowed freedom.  
+   ⇒ Pass.
+
+6. **Data Blindness Check (Validation)**  
+   - The user question provides no external data files or sensor/ground-truth references.  
+   - The plan includes a Cross-Validation section that correctly notes that no external data are provided.  
+   ⇒ Pass.
+
+7. **Compliance Check (User Adherence)**  
+   - Gravity: taken as \(g=1.0\) in the **positive y-direction**, with source term \((0,0,\rho g,\rho g v)^T\) consistent with the user’s specification.  
+   - Domain and time interval: exactly \([0,0.25]\times[0,1.0]\), \(t\in[0,3.0]\).  
+   - Boundary conditions: periodic in \(x\), reflective/free-slip in \(y\) with \(v=0\) at \(y=0,1\), matching the user.  
+   - Initial conditions:  
+     - Density uses the exact user formula with \(\rho_{heavy}=2.0\), \(\rho_{light}=1.0\), tanh smoothing, correctly written.  
+     - Pressure uses the stated piecewise hydrostatic profile \(p(y)=2y+1\) (below 0.5) and \(p(y)=y+1.5\) (above/equal 0.5).  
+     - Velocity: \(u=0\) and \(v(x,y)=-0.025\,c\cos(8\pi x)\sin(\pi y)^6\) with \(c=\sqrt{\gamma p/\rho}\) exactly as in the prompt.  
+   - Output: the plan’s figure “summary_all.png” is consistent with the user’s request to “Create an appropriate Figure and save it as summary_all.png”.  
+   ⇒ Pass.
+
+8. **Lazy Specification Check (Completeness)**  
+   - The strategist explicitly wrote out all IC formulas in LaTeX: \(\rho(y)\), piecewise \(p(y)\), \(u(x,y,0)\), \(v(x,y,0)\), and \(E(x,y,0)\).  
+   - These are code-ready and match the user’s detailed specification, not a vague description.  
+   ⇒ Pass.
+
+9. **Advisor Compliance Check**  
+   - ADVISOR_REPORT is effectively empty (no instructions).  
+   - The plan’s “Advisor-Mandated Adjustments” section correctly lists “None,” which is consistent.  
+   ⇒ Pass.
+
+All specified checks are satisfied; the plan is method-compliant, physics-consistent, non-redundant, and adheres to user and advisor constraints.
+
+--- 2. Calling Collection Team ---
+--- Retrieval Iteration: 0 ---
+Retriever Message:
+[cNS_DGSEM.jl]
+
+**Justification**  
+The retrieved file implements the Discontinuous Galerkin Spectral Element Method (DGSEM), is designed for time‑dependent compressible flow simulations, and supports multi‑dimensional (including 2D) problems, aligning with the required 2D time‑dependent DGSEM main method.
+Validator Message:
+APPROVED
+The retrieved code implements 2D DGSEM (with AMR/shock capturing) matching the requested numerical kernel for a time-dependent 2D compressible flow problem.
+Approval Status: True
+✅ Retrieval loop approved file: cNS_DGSEM.jl
+
+--- Retrieved template: cNS_DGSEM.jl (First 5 lines) ---
+# CODE ANALYSIS (PART 1 of 13)
+# DESCRIPTION:
+#
+# 
+#   method: Discontinuous Galerkin Spectral Element Method (DGSEM) with Hybrid Shock Capturing (DG-FV),
+---------------------------------------------------
+
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: **Context:** The framework uses Trixi.jl to solve the 2D compressible Euler equations with a gravity source term, utilizing DGSEM with AMR and shock capturing to simulate the Rayleigh-Taylor instability.
+
+**Cell-by-Cell Implementation Map:**
+*   **Cell 1 (Solver and Discretization Initialization):** Keep - Standard library imports are correct.
+*   **Cell 2 (Physics Model Definition):** Modify - Remove the Navier-Stokes parabolic extension since the strategy specifies pure Euler equations ($\mu=0, k=0$).
+*   **Cell 3 (Initial Conditions and Source Terms):** Modify - Replace the lid-driven cavity setup with the Rayleigh-Taylor initial conditions (density interface, hydrostatic pressure, seeded vertical velocity) and implement the gravity source term in the $+y$ direction.
+*   **Cell 4 (Spatial Discretization & Hybrid Shock Capturing):** Modify - Change the shock capturing indicator variable from `velocity_magnitude` to `density` as mandated by the strategy.
+*   **Cell 5 (Computational Domain & Adaptive Mesh Topology):** Modify - Update the domain coordinates to $[0, 0.25] \times [0, 1.0]$ and change periodicity to `(true, false)` for periodic $x$ boundaries.
+*   **Cell 6 (General Boundary Condition Specification & System Assembly):** Modify - Remove parabolic boundary conditions, assign `boundary_condition_slip_wall` to the $y$ boundaries, and switch to `SemidiscretizationHyperbolic`.
+*   **Cell 7 (Dynamic Adaptive Mesh Refinement Strategy):** Modify - Change the AMR indicator variable from `velocity_magnitude` to `density`.
+*   **Cell 8 (Data I/O & Surrogate Interoperability):** Modify - Adjust the save condition to ensure frequent saves (e.g., every 0.1 simulation time) to capture the required plotting frames.
+*   **Cell 9 (ODE System Formulation & Time-Loop Control):** Modify - Update `tspan` to `(0.0, 3.0)`.
+*   **Cell 10 (Time Integration Loop):** Keep - The standard explicit time-stepping loop is appropriate.
+*   **Cell 11 (Data Regularization):** Modify - Update the rasterization bounds to match the new domain width ($x_{max} = 0.25$).
+*   **Cell 12 (Post-Processing & Temporal Diagnostics):** Modify - Update the plotting logic to generate a 2x4 layout showing only density ($\rho$) and vertical velocity ($v$) at $t=\{0.0, 1.0, 2.0, 3.0\}$, and explicitly set `colorbar=false`.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 10', 'Cell 11', 'Cell 12'])
+Identified Cells: dict_keys(['Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 11', 'Cell 12'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Solver and Discretization Initialization ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Physics Model Definition (Compressible Navier-Stokes) ---
+  - [Planner]: Instructions received:
+Action: Remove the Navier-Stokes parabolic extension since the strategy specifies pure Euler equations ($\mu=0, k=0$).
+
+New Code (lines 22-27):
+```julia
+equations = CompressibleEulerEquations2D(1.4)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 24-27: action='delete'
+    - Deleting lines 24-27.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Initial Conditions and Source Terms (Lid-Driven Cavity) ---
+  - [Planner]: Instructions received:
+Action: Replace the lid-driven cavity setup with the Rayleigh-Taylor initial conditions (density interface, hydrostatic pressure, seeded vertical velocity), implement the gravity source term in the $+y$ direction, and define a density indicator for AMR/shock capturing.
+
+New Code (lines 18-37):
+```julia
+@inline function initial_condition_rt(x, t, equations::CompressibleEulerEquations2D)
+    y = x[2]
+    
+    # Density (smoothed interface)
+    rho = 2.0 + (1.0 - 2.0) * 0.5 * (1.0 + tanh(50.0 * (y - 0.5)))
+    
+    # Pressure (hydrostatic)
+    p = y < 0.5 ? 2.0 * y + 1.0 : y + 1.5
+    
+    # Velocities
+    u = 0.0
+    c = sqrt(equations.gamma * p / rho)
+    v = -0.025 * c * cos(8.0 * pi * x[1]) * (sin(pi * y))^6
+    
+    return prim2cons(SVector(rho, u, v, p), equations)
+end
+
+@inline function source_terms_rt(u, x, t, equations::CompressibleEulerEquations2D)
+    g = 1.0
+    rho, rho_v1, rho_v2, rho_e = u
+    return SVector(0.0, 0.0, g * rho, g * rho_v2)
+end
+
+@inline function density_indicator(u, equations)
+    return u[1]
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 37-37: action='insert_after'
+    - Inserting 3 lines after line 37.
+  - Processing change for lines 27-32: action='replace'
+    - Replacing lines 27-32 with 5 new lines.
+  - Processing change for lines 18-24: action='replace'
+    - Replacing lines 18-24 with 16 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Spatial Discretization & Hybrid Shock Capturing ---
+  - [Planner]: Instructions received:
+Action: Change the shock capturing indicator variable from `velocity_magnitude` to `density_indicator` as mandated by the strategy.
+
+New Code (lines 30-43):
+```julia
+polydeg = 3
+basis = LobattoLegendreBasis(polydeg)
+
+indicator_sc = IndicatorHennemannGassner(equations, basis,
+                                         alpha_max=1.0,
+                                         alpha_min=0.001,
+                                         alpha_smooth=true,
+                                         variable=density_indicator)
+
+volume_integral = VolumeIntegralShockCapturingHG(indicator_sc;
+                                                 volume_flux_dg=flux_ranocha,
+                                                 volume_flux_fv=flux_lax_friedrichs)
+
+dg = DGSEM(polydeg=polydeg, surface_flux=flux_hll, volume_integral=volume_integral)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 37-37: action='replace'
+    - Replacing lines 37-37 with 1 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Computational Domain & Adaptive Mesh Topology ---
+  - [Planner]: Instructions received:
+Action: Update the domain coordinates to $[0, 0.25] \times [0, 1.0]$, adjust `trees_per_dimension` to `(1, 4)` to match the new aspect ratio, and change periodicity to `(true, false)` for periodic $x$ boundaries.
+
+New Code (lines 19-26):
+```julia
+coordinates_min = (0.0, 0.0)
+coordinates_max = (0.25, 1.0)
+
+# trees_per_dimension (1, 4) for 1:4 aspect ratio
+mesh = P4estMesh((1, 4), polydeg=polydeg,
+                 coordinates_min=coordinates_min, coordinates_max=coordinates_max,
+                 initial_refinement_level=3, # Start coarser, let AMR refine
+                 periodicity=(true, false)) # Periodic in x, Walls in y
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 19-26: action='replace'
+    - Replacing lines 19-26 with 8 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 6 ---
+
+--- Analizing: # ## Cell 6: General Boundary Condition Specification & System Assembly ---
+  - [Planner]: Instructions received:
+Action: Remove parabolic boundary conditions, assign `boundary_condition_slip_wall` to the $y$ boundaries (since $x$ is periodic), and switch to `SemidiscretizationHyperbolic` using the Rayleigh-Taylor initial conditions and source terms.
+
+New Code (lines 43-71):
+```julia
+boundary_conditions = Dict(
+    :y_pos => boundary_condition_slip_wall,
+    :y_neg => boundary_condition_slip_wall
+)
+
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_rt, dg;
+                                    boundary_conditions = boundary_conditions,
+                                    source_terms = source_terms_rt)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 43-71: action='replace'
+    - Replacing lines 43-71 with 8 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 7 ---
+
+--- Analizing: # ## Cell 7: Dynamic Adaptive Mesh Refinement (AMR) Strategy ---
+  - [Planner]: Instructions received:
+Action: Change the AMR indicator variable from `velocity_magnitude` to `density_indicator` as mandated by the strategy.
+
+New Code (lines 23-34):
+```julia
+amr_indicator = IndicatorLöhner(semi, variable=density_indicator)
+
+# 2. Controller
+amr_controller = ControllerThreeLevel(semi, amr_indicator,
+                                      base_level=4,
+                                      med_level=5, med_threshold=0.1,
+                                      max_level=6, max_threshold=0.3)
+
+# 3. Callback
+amr_callback = AMRCallback(semi, amr_controller,
+                           interval=20,
+                           adapt_initial_condition=true)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 23-34: action='replace'
+    - Replacing lines 23-34 with 12 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 8 ---
+
+--- Analizing: # ## Cell 8: Data I/O & Surrogate Interoperability ---
+  - [Planner]: Instructions received:
+Action: Adjust the save condition to ensure frequent saves (e.g., every 0.1 simulation time) to capture the required plotting frames, rather than relying on iteration count.
+
+New Code (lines 47-59):
+```julia
+# 3. Condition: Every dt_save = 0.1 OR at the end
+function condition_save_npz(u, t, integrator)
+    t_end = integrator.sol.prob.tspan[2]
+    is_finished = t >= (t_end - 1e-5)
+    
+    # Save every 0.1 time units approximately
+    dt_save = 0.1
+    is_save_time = (t % dt_save) < integrator.dt || (t % dt_save) > (dt_save - integrator.dt)
+    
+    return is_save_time || is_finished
+end
+
+# 4. Create Callback
+save_npz_callback = DiscreteCallback(condition_save_npz, 
+                                     save_npz_file, 
+                                     save_positions=(false,false),
+                                     initialize=init_save_npz)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 47-59: action='replace'
+    - Replacing lines 47-59 with 17 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 9 ---
+
+--- Analizing: # ## Cell 9: ODE System Formulation & Time-Loop Control ---
+  - [Planner]: Instructions received:
+Action: Update `tspan` to `(0.0, 3.0)` to match the required simulation time for the Rayleigh-Taylor instability.
+
+New Code (lines 25-26):
+```julia
+tspan = (0.0, 3.0) # 
+ode = semidiscretize(semi, tspan)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 25-26: action='replace'
+    - Replacing lines 25-26 with 2 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 10 ---
+
+--- Analizing: # ## Cell 10: Time Integration Loop ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 11 ---
+
+--- Analizing: # ## Cell 11: Data Regularization (Rasterization) ---
+  - [Planner]: Instructions received:
+Action: Update the rasterization bounds to match the new domain width ($x_{max} = 0.25$) and adjust the default `nx` to 50 to maintain a square pixel aspect ratio.
+
+New Code (lines 20-26):
+```julia
+function rasterize_data(x, y, z, nx=50, ny=200)
+    # 1. Create a grid
+    grid = fill(NaN, ny, nx) # NaN makes empty space transparent
+    
+    # 2. Determine bounds 
+    x_min, x_max = 0.0, 0.25
+    y_min, y_max = 0.0, 1.0
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 20-26: action='replace'
+    - Replacing lines 20-26 with 7 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 12 ---
+
+--- Analizing: # ## Cell 12: Post-Processing & Temporal Diagnostics ---
+  - [Planner]: Instructions received:
+Action: Update the plotting logic to generate a 2x4 layout showing only density ($\rho$) and vertical velocity ($v$) at $t=\{0.0, 1.0, 2.0, 3.0\}$, explicitly set `colorbar=false`, and adjust `xlims` to match the domain width.
+
+New Code (lines 23-78):
+```julia
+println("Generating clean heatmaps...")
+plots_rho = []
+plots_v = []
+
+# Collect the saved snapshot files and pick 4 target times
+files = sort([joinpath(npz_out, f) for f in readdir(npz_out) if endswith(f, ".npz")])
+target_times = [0.0, 1.0, 2.0, 3.0]
+selected_files = String[]
+for tt in target_times
+    idx = argmin([abs(parse(Float64, match(r"time_([\d\.]+)\.npz", basename(f)).captures[1]) - tt) for f in files])
+    push!(selected_files, files[idx])
+end
+
+for f in selected_files
+    println(f)
+    data = npzread(f)
+    t_val = data["t"]
+    
+    # 1. READ & FLATTEN (Critical for Plots.jl performance)
+    x = vec(data["x"])
+    y = vec(data["y"])
+    
+    # 2. STYLE
+    style = (
+        seriestype = :scatter,
+        markersize = 2.5,     
+        markerstrokewidth = 0, 
+        c = :coolwarm,
+        aspect_ratio = :equal,
+        xlims = (0, 0.25),        
+        ylims = (0, 1),
+        axis = nothing,           
+        framestyle = :none,    
+        legend = false,   
+        colorbar = false,
+        margin = 2Plots.mm
+    )
+    
+    # Density
+    push!(plots_rho, plot(x, y, zcolor=vec(data["rho"]), 
+                          title="ρ, t=$(round(t_val, digits=2))"; style...))
+                            
+    # Vertical Velocity
+    push!(plots_v, plot(x, y, zcolor=vec(data["v"]),   
+                        title="v, t=$(round(t_val, digits=2))"; style...))
+end
+
+# Combine and Save
+println("Saving summary_all.png...")
+plots_array = vcat(plots_rho, plots_v)
+final_plot = plot(plots_array..., layout=(2,4), size=(1000, 2000), margin=5Plots.mm)
+savefig(final_plot, joinpath(@__DIR__, "summary_all.png"))
+println("Done.")
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 23-78: action='replace'
+    - Replacing lines 23-78 with 46 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ Numerical simulation using DGSEM (polydeg=3) on P4estMesh for 2D compressible Euler equations with gravity source term. AMR and shock capturing both use density-based indicators. Domain [0,0.25]x[0,1], t=[0,3], periodic x / slip-wall y BCs. Initial conditions exactly match the tanh-smoothed density, piecewise hydrostatic pressure, and perturbation velocity. Time integration via RDPK3SpFSAL49 with CFL stepping.
+Proposed name:CompressibleEuler_Periodic_Reflective_SmoothedInterface\Question :Let's solve the 2D Compressible Euler equations for the Rayleigh-Taylor Instability.
+
+**Physics Parameters:**
+* **Equations:** Compressible Euler ($\gamma = 1.4$).
+* **Gravity:** $g = 1.0$ acting in the **positive $y$-direction** (The source term adds momentum in $+y$).
+* **Inviscid:** $\mu = 0$, thermal conductivity $k = 0$.
+
+**Domain:**
+$(x,y) \in [0, 0.25] \times [0, 1.0]$
+Time interval: $t \in [0, 3.0]$
+
+**Boundary Conditions:**
+* $x$-direction: **Periodic**.
+* $y$-direction: **Reflective / Free-slip walls** at $y=0$ and $y=1$ (No-penetration condition $v=0$).
+
+**Initial Conditions:**
+The domain is split at the interface $y=0.5$.
+* **Density ($\rho$):** A smoothed interface between $\rho_{heavy} = 2.0$ (bottom) and $\rho_{light} = 1.0$ (top).
+    $$ \rho(y) = \rho_{heavy} + (\rho_{light} - \rho_{heavy}) \cdot \frac{1}{2}\left(1 + \tanh\left(50(y - 0.5)\right)\right) $$
+* **Pressure ($p$):** Hydrostatic balance ($\frac{dp}{dy} = \rho g$).
+    $$ p(y) = \begin{cases} 2y + 1 & \text{if } y < 0.5 \\ y + 1.5 & \text{if } y \geq 0.5 \end{cases} $$
+* **Velocity:** Initialized with zero horizontal velocity ($u=0$) and a perturbation in vertical velocity ($v$):
+    $$ v(x,y) = -0.025 \cdot c \cdot \cos(8\pi x) \cdot \sin(\pi y)^6 $$
+    Where $c = \sqrt{\gamma p / \rho}$ is the local speed of sound.
+
+**Output:**
+Create an appropiate Figure and saved it as summary_all.png
+
+Created project directory: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/NM_codes//CompressibleEuler_Periodic_Reflective_SmoothedInterface/2026_06_16_2348/
+Successfully saved code to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/NM_codes//CompressibleEuler_Periodic_Reflective_SmoothedInterface/2026_06_16_2348/CompressibleEuler_Periodic_Reflective_SmoothedInterface.jl
+Attempting to run /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/NM_codes//CompressibleEuler_Periodic_Reflective_SmoothedInterface/2026_06_16_2348/CompressibleEuler_Periodic_Reflective_SmoothedInterface.jl...
+
+--- [Streaming Output silently to /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/NM_codes//CompressibleEuler_Periodic_Reflective_SmoothedInterface/2026_06_16_2348/CompressibleEuler_Periodic_Reflective_SmoothedInterface.jl.out] ---
+--- [End of Stream. Exit Code: 1] ---
+❌ Error running CompressibleEuler_Periodic_Reflective_SmoothedInterface.jl.
+--- [Found julia Error. Sending snippet to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: REJECTED_FATAL
+Debugger Analysis: A fatal runtime error occurred in **Cell 12** during the post-processing phase. The error is:
+
+**Error Type:** `FieldError: type Nothing has no field 'captures'`
+
+**Root Cause Analysis:**
+The error occurs at line 477 in the final cell when attempting to parse filenames using a regular expression:
+
+```julia
+idx = argmin([abs(parse(Float64, match(r"time_([\\d\\.]+)\\.npz", basename(f)).captures[1]) - tt) for f in files])
+```
+
+The `match()` function returns `Nothing` when the regex pattern fails to match a filename. This happens because:
+
+1. The code expects all files in `data_npz/` to follow the pattern `time_XXXXXXXX.npz`
+2. If the directory contains any files that don't match this pattern (e.g., hidden files, temporary files, or files with different naming), `match()` returns `Nothing`
+3. Attempting to access `.captures[1]` on `Nothing` triggers the `FieldError`
+
+**Bug Classification:** This is a **Planner Logic Error** (fixable). The code lacks defensive programming:
+- No validation that `match()` succeeded before accessing `.captures`
+- No filtering to ensure only valid `.npz` files matching the expected pattern are processed
+
+**Recommended Fix:**
+The Planner should add a null-check or filter the file list before the `argmin` operation:
+
+```julia
+# Option 1: Filter files first
+valid_files = filter(f -> !isnothing(match(r"time_([\\d\\.]+)\\.npz", basename(f))), files)
+
+# Option 2: Add null-check in the comprehension
+idx = argmin([let m = match(r"time_([\\d\\.]+)\\.npz", basename(f))
+               isnothing(m) ? Inf : abs(parse(Float64, m.captures[1]) - tt)
+              end for f in files])
+```
+
+This error prevented the generation of `summary_all.png`, which was the primary deliverable requested by the user.
+--- Clearing agent short-term memories ---
+Chat history cleared.
+
+--- Code Creation Iteration: 1 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- There was an implementation error so we will keep the same strategy for this iteration---
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: **Context:** The framework implements a 2D Discontinuous Galerkin Spectral Element Method (DGSEM) with adaptive mesh refinement (AMR) to simulate the Rayleigh-Taylor instability using the compressible Euler equations with a gravity source term.
+
+**Mapping:**
+- Cell 1 (Solver and Discretization Initialization): Keep - Standard imports and thread initialization are correct.
+- Cell 2 (Physics Model Definition): Keep - `CompressibleEulerEquations2D(1.4)` correctly defines the inviscid Euler equations required by the strategy.
+- Cell 3 (Initial Conditions and Source Terms): Keep - The exact Rayleigh-Taylor initial conditions (smoothed density, hydrostatic pressure, seeded velocity) and gravity source terms are already perfectly implemented.
+- Cell 4 (Spatial Discretization & Hybrid Shock Capturing): Keep - DGSEM with shock capturing using the `density_indicator` matches the strategy.
+- Cell 5 (Computational Domain & Adaptive Mesh Topology): Keep - Domain bounds `[0, 0.25] x [0, 1.0]` and `periodicity=(true, false)` exactly match the requirements.
+- Cell 6 (General Boundary Condition Specification): Keep - Slip wall boundary conditions on the y-axis are correctly mapped.
+- Cell 7 (Dynamic Adaptive Mesh Refinement): Keep - AMR is correctly configured to refine based on the density indicator.
+- Cell 8 (Data I/O & Surrogate Interoperability): Keep - NPZ saving callback is correctly configured to save the full state frequently.
+- Cell 9 (ODE System Formulation & Time-Loop Control): Keep - `tspan = (0.0, 3.0)` and callbacks are correctly assembled.
+- Cell 10 (Time Integration Loop): Keep - The explicit time-stepping loop is correctly configured.
+- Cell 11 (Data Regularization): Keep - Utility function for potential rasterization.
+- Cell 12 (Post-Processing & Temporal Diagnostics): Modify - Must fix the `FieldError` caused by the regex `match()` returning `Nothing` by filtering the file list first, as detailed in the Error Report. Ensure the 2x4 layout for density and vertical velocity is maintained.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 10', 'Cell 11', 'Cell 12'])
+Identified Cells: dict_keys(['Cell 12'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Solver and Discretization Initialization ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Physics Model Definition (Compressible Navier-Stokes) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Initial Conditions and Source Terms (Lid-Driven Cavity) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Spatial Discretization & Hybrid Shock Capturing ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Computational Domain & Adaptive Mesh Topology ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 6 ---
+
+--- Analizing: # ## Cell 6: General Boundary Condition Specification & System Assembly ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 7 ---
+
+--- Analizing: # ## Cell 7: Dynamic Adaptive Mesh Refinement (AMR) Strategy ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 8 ---
+
+--- Analizing: # ## Cell 8: Data I/O & Surrogate Interoperability ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 9 ---
+
+--- Analizing: # ## Cell 9: ODE System Formulation & Time-Loop Control ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 10 ---
+
+--- Analizing: # ## Cell 10: Time Integration Loop ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 11 ---
+
+--- Analizing: # ## Cell 11: Data Regularization (Rasterization) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 12 ---
+
+--- Analizing: # ## Cell 12: Post-Processing & Temporal Diagnostics ---
+  - [Planner]: Instructions received:
+Action: The previous execution failed due to a `FieldError` when parsing filenames, because `match()` returned `Nothing` for files that did not match the expected regex pattern. I will add a filter to ensure only valid `.npz` files matching the pattern are processed before attempting to extract the time.
+
+New Code (lines 26-33):
+```julia
+# Collect the saved snapshot files and pick the target times
+files = sort([joinpath(npz_out, f) for f in readdir(npz_out) if endswith(f, ".npz")])
+valid_files = filter(f -> !isnothing(match(r"time_([\\d\\.]+)\\.npz", basename(f))), files)
+target_times = [0.0, 1.0, 2.0, 3.0]
+selected_files = String[]
+for tt in target_times
+    idx = argmin([abs(parse(Float64, match(r"time_([\\d\\.]+)\\.npz", basename(f)).captures[1]) - tt) for f in valid_files])
+    push!(selected_files, valid_files[idx])
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 27-33: action='replace'
+    - Replacing lines 27-33 with 8 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---

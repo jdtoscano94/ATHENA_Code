@@ -1,0 +1,13 @@
+{
+    "problem_name": "Viscous_Burgers_1D_Numerical",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "A",
+            "task": "Numerical solution and validation (SciC)."
+        }
+    ],
+    "description": "High-fidelity numerical solution of the 1D viscous Burgers equation, forward transient (SciC).",
+    "user_request": "Let's solve the 1D Viscous Burgers' equation; with nu=1/(100pi)\nDomain: $(x,) \\in [-1,1]$, $t \\in [0, 1]$.\nBCs: Periodic x\n\nInitial Condition:\n$$ u(x,0) = -sin(pi x) $$\n\nThe final plot must be saved as summary_all.png it should include snapshots of several timesteps",
+    "source_notebook": "Examples_NM/Viscous_Burgers_1D.ipynb"
+}

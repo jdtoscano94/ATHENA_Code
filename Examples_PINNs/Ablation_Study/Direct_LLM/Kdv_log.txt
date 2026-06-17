@@ -1,0 +1,148 @@
+Experiment: KdV_TwoSoliton_PINN
+Network architecture: [2, 50, 50, 50, 50, 1]
+Training epochs: 50000
+Learning rate: 0.001
+Residual points: 10000
+BC points: 200
+IC points: 200
+Reference solution shape: (256, 100)
+Reference solution range: [0.0000, 2.9999]
+
+Training data generated:
+  IC points: 200
+  BC1 points (x=0): 200
+  BC2 points (x=20): 200
+  BC3 points (Neumann x=20): 200
+  Residual points: 10000
+
+Network initialized with 5 layers
+
+======================================================================
+Starting Training
+======================================================================
+Training:   0%|          | 164/50000 [00:05<16:58, 48.95it/s] 
+Epoch 0/50000
+  Loss: 1.209425e+00
+  Rel. L2: 9.778376e-01
+  L2: 9.895464e+01
+  L∞: 2.982522e+00
+Training:  10%|█         | 5101/50000 [00:12<01:06, 678.42it/s]
+Epoch 5000/50000
+  Loss: 2.608148e-03
+  Rel. L2: 2.718333e-01
+  L2: 2.750883e+01
+  L∞: 7.332681e-01
+Training:  20%|██        | 10101/50000 [00:20<00:58, 678.40it/s]
+Epoch 10000/50000
+  Loss: 3.982792e-04
+  Rel. L2: 1.348805e-01
+  L2: 1.364955e+01
+  L∞: 4.398654e-01
+Training:  30%|███       | 15101/50000 [00:28<00:51, 678.31it/s]
+Epoch 15000/50000
+  Loss: 5.681868e-04
+  Rel. L2: 6.618751e-02
+  L2: 6.698006e+00
+  L∞: 2.267079e-01
+Training:  40%|████      | 20101/50000 [00:35<00:44, 678.27it/s]
+Epoch 20000/50000
+  Loss: 1.019172e-04
+  Rel. L2: 4.015268e-02
+  L2: 4.063347e+00
+  L∞: 1.336374e-01
+Training:  50%|█████     | 25101/50000 [00:43<00:36, 678.22it/s]
+Epoch 25000/50000
+  Loss: 1.061657e-04
+  Rel. L2: 3.167917e-02
+  L2: 3.205850e+00
+  L∞: 1.075548e-01
+Training:  60%|██████    | 30101/50000 [00:51<00:29, 678.23it/s]
+Epoch 30000/50000
+  Loss: 2.570746e-04
+  Rel. L2: 2.535702e-02
+  L2: 2.566065e+00
+  L∞: 6.988382e-02
+Training:  70%|███████   | 35101/50000 [00:58<00:21, 678.10it/s]
+Epoch 35000/50000
+  Loss: 7.426397e-04
+  Rel. L2: 1.831511e-02
+  L2: 1.853442e+00
+  L∞: 6.115496e-02
+Training:  80%|████████  | 40101/50000 [01:06<00:14, 678.08it/s]
+Epoch 40000/50000
+  Loss: 8.766009e-05
+  Rel. L2: 1.521531e-02
+  L2: 1.539750e+00
+  L∞: 4.987812e-02
+Training:  90%|█████████ | 45101/50000 [01:13<00:07, 678.03it/s]
+Epoch 45000/50000
+  Loss: 1.625317e-04
+  Rel. L2: 1.484835e-02
+  L2: 1.502615e+00
+  L∞: 5.229998e-02
+Training: 100%|██████████| 50000/50000 [01:21<00:00, 614.26it/s]
+
+======================================================================
+Training Complete!
+======================================================================
+Solution:
+T shape: (256, 100), X shape: (256, 100), Exact0 shape: (256, 100), u shape: (256, 100)
+Calculating PDE residuals for plotting...
+Residuals calculated. Min: 2.384185791015625e-07, Max: 0.10095024108886719
+<Figure size 1400x600 with 10 Axes>
+Minimum achieved RL2 error: 1.146907e-02
+
+Results saved to KdV_TwoSoliton_PINN_results.mat
+
+Starting training...
+[31m---------------------------------------------------------------------------[39m
+[31mTypeError[39m                                 Traceback (most recent call last)
+[36mCell[39m[36m [39m[32mIn[6][39m[32m, line 221[39m
+[32m    218[39m max_iters = [32m15000[39m
+[32m    220[39m [38;5;28;01mfor[39;00m it [38;5;129;01min[39;00m [38;5;28mrange[39m(max_iters + [32m1[39m):
+[32m--> [39m[32m221[39m     params, opt_state, loss_val = [43mupdate[49m[43m([49m[43mparams[49m[43m,[49m[43m [49m[43mopt_state[49m[43m,[49m[43m [49m[43mdata[49m[43m)[49m
+[32m    223[39m     [38;5;28;01mif[39;00m it % [32m1000[39m == [32m0[39m:
+[32m    224[39m         u_pred_grid = apply_fn(params, T.flatten()[:,[38;5;28;01mNone[39;00m], X.flatten()[:,[38;5;28;01mNone[39;00m]).reshape(T.shape)
+
+    [31m[... skipping hidden 14 frame][39m
+
+[36mCell[39m[36m [39m[32mIn[6][39m[32m, line 188[39m, in [36mupdate[39m[34m(params, opt_state, data)[39m
+[32m    186[39m [38;5;129m@jit[39m
+[32m    187[39m [38;5;28;01mdef[39;00m[38;5;250m [39m[34mupdate[39m(params, opt_state, data):
+[32m--> [39m[32m188[39m     loss, grads = [43mjax[49m[43m.[49m[43mvalue_and_grad[49m[43m([49m[43mloss_fn[49m[43m)[49m[43m([49m[43mparams[49m[43m,[49m[43m [49m[43mdata[49m[43m)[49m
+[32m    189[39m     updates, opt_state = optimizer.update(grads, opt_state, params)
+[32m    190[39m     params = optax.apply_updates(params, updates)
+
+    [31m[... skipping hidden 16 frame][39m
+
+[36mCell[39m[36m [39m[32mIn[6][39m[32m, line 155[39m, in [36mloss_fn[39m[34m(params, data)[39m
+[32m    152[39m [38;5;28;01mdef[39;00m[38;5;250m [39m[34mloss_fn[39m(params, data):
+[32m    153[39m     [38;5;66;03m# 1. PDE Loss[39;00m
+[32m    154[39m     t_f, x_f = data[[33m'[39m[33mcollocation[39m[33m'[39m]
+[32m--> [39m[32m155[39m     res = [43mPDE_residuals[49m[43m([49m[43mparams[49m[43m,[49m[43m [49m[43mt_f[49m[43m,[49m[43m [49m[43mx_f[49m[43m,[49m[43m [49m[43mapply_fn[49m[43m)[49m
+[32m    156[39m     loss_pde = jnp.mean(res**[32m2[39m)
+[32m    158[39m     [38;5;66;03m# 2. IC Loss[39;00m
+
+[36mCell[39m[36m [39m[32mIn[6][39m[32m, line 146[39m, in [36mPDE_residuals[39m[34m(params, t, x, apply_fn)[39m
+[32m    144[39m u_t_v = vmap(u_t)(t, x)
+[32m    145[39m u_x_v = vmap(u_x)(t, x)
+[32m--> [39m[32m146[39m u_xxx_v = [43mvmap[49m[43m([49m[43mu_xxx[49m[43m)[49m[43m([49m[43mt[49m[43m,[49m[43m [49m[43mx[49m[43m)[49m
+[32m    147[39m u_val = apply_fn(params, t, x)
+[32m    149[39m f = u_t_v + [32m6.0[39m * u_val * u_x_v + u_xxx_v
+
+    [31m[... skipping hidden 29 frame][39m
+
+[36mFile [39m[32m~/.conda/envs/JAX_311/lib/python3.11/site-packages/jax/_src/api.py:532[39m, in [36m_check_scalar[39m[34m(x)[39m
+[32m    530[39m [38;5;28;01mif[39;00m [38;5;28misinstance[39m(aval, ShapedArray):
+[32m    531[39m   [38;5;28;01mif[39;00m aval.shape != ():
+[32m--> [39m[32m532[39m     [38;5;28;01mraise[39;00m [38;5;167;01mTypeError[39;00m(msg([33mf[39m[33m"[39m[33mhad shape: [39m[38;5;132;01m{[39;00maval.shape[38;5;132;01m}[39;00m[33m"[39m))
+[32m    533[39m [38;5;28;01melse[39;00m:
+[32m    534[39m   [38;5;28;01mraise[39;00m [38;5;167;01mTypeError[39;00m(msg([33mf[39m[33m"[39m[33mhad abstract value [39m[38;5;132;01m{[39;00maval[38;5;132;01m}[39;00m[33m"[39m))
+
+[31mTypeError[39m: Gradient only defined for scalar-output functions. Output had shape: (1,).
+--- Starting Adam Optimization ---
+Adam Training: 100%|██████████| 10000/10000 [03:24<00:00, 48.79it/s, Loss=1.6846e+00, L2 Error=9.5859e-01]Adam optimization finished in 204.97 seconds.
+
+
+
+--- Starting L-BFGS-B Optimization ---

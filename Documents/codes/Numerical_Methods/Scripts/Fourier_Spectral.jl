@@ -20,6 +20,7 @@ using SciMLOperators
 using Plots
 using NPZ
 using DiffEqCallbacks
+using Printf
 
 # %% [markdown]
 # # Cell 1: Spectral Operator Library

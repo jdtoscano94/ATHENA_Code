@@ -3,9 +3,13 @@
 # --- Configuration ---
 # Using the specific paths from your environment
 # 2. Dynamically grab the path to the executable
-JULIA_EXEC="/Users/jdtoscan/.juliaup/bin/julia"
+JULIA_EXEC="/users/jdtoscan/.juliaup/bin/julia"
 
-PROJECT_ENV="/Users/jdtoscan/Documents/Learning_Julia"
+PROJECT_ENV="/oscar/data/gk/jdtoscan/Learning_Julia"
+
+# Number of threads: prefer the SLURM allocation, else the cgroup-visible CPU
+# count (nproc respects the cores actually granted to this job).
+JULIA_THREADS="${SLURM_CPUS_PER_TASK:-${SLURM_CPUS_ON_NODE:-$(nproc)}}"
 
 # --- Safety ---
 # Exit immediately if a command exits with a non-zero status
@@ -56,4 +60,4 @@ fi
 # 1. Use the configured Project Environment
 # 2. Run the script
 # 3. Redirect stderr (2>) to the log file provided by Python
-"$JULIA_EXEC" --project="$PROJECT_ENV" --color=no "$JULIA_SCRIPT" 2> "$STDERR_FILE"
+"$JULIA_EXEC" --project="$PROJECT_ENV" --threads="$JULIA_THREADS" --color=no "$JULIA_SCRIPT" 2> "$STDERR_FILE"

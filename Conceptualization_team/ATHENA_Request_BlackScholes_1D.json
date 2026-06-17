@@ -1,0 +1,13 @@
+{
+    "problem_name": "BlackScholes_1D",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "A",
+            "task": "Numerical solution and validation (SciC)."
+        }
+    ],
+    "description": "Numerical solution of the 1D Black-Scholes equation, validated against the analytical solution (SciC).",
+    "user_request": "Let's solve the following Variable-Coefficient Parabolic PDE (backward in time):\n$$ \\frac{\\partial u}{\\partial t} + \\frac{1}{2} \\sigma^2 x^2 \\frac{\\partial^2 u}{\\partial x^2} + r x \\frac{\\partial u}{\\partial x} - r u = 0 $$\n\nParameters:\n$\\sigma = 0.2$ (volatility)\n$r = 0.05$ (rate)\n$K = 100$\n\nDomain:\n$x \\in [0, 300]$ (Space)\n$t \\in [0, 1]$ (Time)\n\nBoundary/Terminal Conditions:\n1. Terminal Condition at $t=1$:\n   $$ u(x, 1) = \\max(x - K, 0) $$\n2. Boundary at $x=0$: $u(0, t) = 0$\n3. Boundary at $x=300$: $u(300, t) \\approx x - K e^{-r(1-t)}$\n\nVISUALIZATION REQUIREMENTS:\nThe final plot summary_all.png must be a 4x4 subplot grid showing at times t=1.0, 0.75, 0.5, 0.25, 0.0:\n\n1. **First row**: Option value u(x,t) vs x\n2. **Second row**: Delta = \u2202u/\u2202x vs x (first derivative with respect to space)\n3. **Third row**: Gamma = \u2202\u00b2u/\u2202x\u00b2 vs x (second derivative with respect to space)\n4. **Fourth row**: Theta = \u2202u/\u2202t vs x (time derivative)\n\nEach subplot should have:\n- Clear legend indicating time values\n- Appropriate axis labels",
+    "source_notebook": "Examples_analytical_exact/BS1D.ipynb"
+}

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-CONDA_ACTIVATION_SCRIPT="/gpfs/runtime/opt/anaconda/2020.02/etc/profile.d/conda.sh"
-CONDA_ENV_NAME="JAX_311"
+CONDA_ACTIVATION_SCRIPT="/oscar/rt/9.6/25/spack/x86_64_v3/anaconda3-2023.09-0-aqbcryind6ewgctu7wijluakv5mo3lo5/etc/profile.d/conda.sh"
+CONDA_ENV_NAME="NABLA_JAX"
 
 # --- Safety ---
 set -e

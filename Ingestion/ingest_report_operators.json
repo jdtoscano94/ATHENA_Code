@@ -1,0 +1,28 @@
+{
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/SciML/Operator_Learning/DeepONets/Files/DeepONet_QR_Tutorial.py": {
+        "analysis": {
+            "method": "QR-DeepONet",
+            "equation": "Burgers",
+            "dimensionality": "1D+t",
+            "optimizer_scheme": "Adam",
+            "BCs": "N/A",
+            "problem_type": "Learn the operator that maps initial conditions to the full spatio-temporal solution field.",
+            "description": "The code implements a QR-DeepONet to learn the solution operator for the Burgers equation using a two-stage training process and variational Residual-Based Attention (vRBA) for adaptive loss weighting.",
+            "filename": "DeepONet_QR_Tutorial.py"
+        },
+        "chunks_created": 12
+    },
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/SciML/Operator_Learning/DeepONets/Files/DeepONet_tutorial.py": {
+        "analysis": {
+            "method": "DeepONet",
+            "equation": "Burgers",
+            "dimensionality": "1D+t",
+            "optimizer_scheme": "Adam",
+            "BCs": "N/A",
+            "problem_type": "Learn the operator that maps initial conditions to the full spatio-temporal solution field for the Burgers equation.",
+            "description": "A DeepONet implementation using JAX/Flax to learn the solution operator of the Burgers equation, featuring a variational Residual-Based Attention (vRBA) mechanism for adaptive loss weighting and importance sampling.",
+            "filename": "DeepONet_tutorial.py"
+        },
+        "chunks_created": 14
+    }
+}

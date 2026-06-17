@@ -573,13 +573,20 @@ def run_code(project_dir, final_filename, final_filepath):
 
     code_language = get_language_from_filename(final_filename)
     shell_script_path = "" # Initialize
-    
+
+    # Resolve the run scripts relative to this repo (utils.py lives in
+    # crunch_llm/code/, so the repo root is two levels up). This avoids the
+    # machine-specific absolute paths that used to be hardcoded here.
+    _scripts_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "Documents", "Scripts")
+
     if code_language == 'julia':
-        shell_script_path = "/Users/jdtoscan/Documents/LLM/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/Scripts/run_julia.sh"
-        
+        shell_script_path = os.path.join(_scripts_dir, "run_julia.sh")
+
     elif code_language == 'python':
-        shell_script_path = "/Users/jdtoscan/Documents/LLM/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/Scripts/run_python.sh"
-    
+        shell_script_path = os.path.join(_scripts_dir, "run_python.sh")
+
     else:
         print(f"❌ Error: No run script defined for language '{code_language}'. Cannot run.")
         return False, "", "", "" # Return all 4 items on failure

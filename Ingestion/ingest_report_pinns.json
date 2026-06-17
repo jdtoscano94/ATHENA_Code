@@ -1,0 +1,16 @@
+{
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/SciML/PINNs/MLP_SSBroyden.py": {
+        "analysis": {
+            "method": "Physics-Informed Neural Network (PINN) with Periodic Fourier Features",
+            "equation": "Allen-Cahn equation: u_t - 0.0001*u_xx + 5.0*u^3 - 5.0*u = 0",
+            "dimensionality": "1D Spatial + 1D Temporal (1+1D)",
+            "solver_or_optimizer": "Hybrid Adam and SSBroyden (Self-Scaling Broyden/BFGS) quasi-Newton optimizer",
+            "enhancements": "vRBA (Residual-Based Attention) with exponential potential, Importance Sampling based on residual magnitudes, Periodic Fourier Feature embedding, Gradient-based loss weighting (Adaptive lamB), Exponential Moving Average (EMA) for weight updates, Automatic differentiation via JAX (jvp/hvp)",
+            "BCs": "Periodic Boundary Conditions enforced via Fourier embedding; Initial Conditions enforced via penalty term in the loss function",
+            "problem": "Forward",
+            "description": "This implementation solves the Allen-Cahn equation using a PINN enhanced by a hybrid first/second-order optimization scheme and adaptive residual-based attention. It employs periodic embeddings to satisfy spatial boundary conditions and importance sampling to prioritize training on regions with high PDE residuals.",
+            "filename": "MLP_SSBroyden.py"
+        },
+        "chunks_created": 19
+    }
+}

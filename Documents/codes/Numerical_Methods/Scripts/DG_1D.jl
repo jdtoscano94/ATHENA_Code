@@ -23,6 +23,11 @@ using OrdinaryDiffEq
 using Plots
 using NPZ
 
+# Reinitialize Polyester's per-thread task buffers for the active thread count.
+# Without this, Trixi's threaded kernels throw `UndefRefError` in ManualMemory.jl
+# when Julia is launched with multiple threads (--threads > 1).
+Trixi.Polyester.reset_threads!()
+
 # %% [markdown]
 # # Cell 1: Problem Setup and Spectral Discretization
 # 

@@ -10,10 +10,8 @@ import shutil #
 import re
 from IPython.display import display, Image
 from datetime import datetime 
-from langchain.agents import AgentExecutor
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_tool_calling_agent
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser # Import the JSON parser

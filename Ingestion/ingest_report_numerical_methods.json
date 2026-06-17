@@ -1,0 +1,72 @@
+{
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Numerical_Methods/Scripts/Burgers_MoC.jl": {
+        "analysis": {
+            "method": "Method of Characteristics (MoC) with Shock Fitting",
+            "equation": "1D Burgers' Equation (u_t + u u_x = 0)",
+            "dimensionality": "1D (spatial) + 1D (temporal)",
+            "solver_or_optimizer": "Secant Method (Roots.jl Order1)",
+            "enhancements": "Shock fitting, Rankine-Hugoniot condition enforcement, Equal Area Rule, Lagrangian characteristic tracing, Implicit characteristic root-finding, Periodic domain mapping",
+            "BCs": "Periodic",
+            "problem": "Generating the exact entropy solution for the 1D Burgers' equation with a sinusoidal initial condition to track shock formation and evolution.",
+            "description": "The code implements an analytical solver for hyperbolic conservation laws using the Method of Characteristics and the Equal Area Rule to handle shock discontinuities. It solves the implicit characteristic equations via root-finding to provide a high-fidelity ground truth for numerical verification and PINN training.",
+            "filename": "Burgers_MoC.jl"
+        },
+        "chunks_created": 6
+    },
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Numerical_Methods/Scripts/CG_2D.jl": {
+        "analysis": {
+            "method": "Galerkin Finite Element Method (FEM) with Taylor-Hood (P2/P1) elements",
+            "equation": "Steady Incompressible Navier-Stokes equations",
+            "dimensionality": "2D (Steady)",
+            "solver_or_optimizer": "Newton-Raphson with Backtracking Line Search",
+            "enhancements": "Adaptive Mesh Refinement (AMR), Dorfler (Bulk) Marking, Newest Vertex Bisection (NVB), Reynolds Continuation (Homotopy), A Posteriori Error Estimation, Automatic Differentiation for Jacobian assembly, Monolithic Saddle-Point Solver",
+            "BCs": "Dirichlet: No-slip walls on three sides, prescribed tangential velocity (lid) at y=1; Zero-mean pressure constraint",
+            "problem": "Lid-Driven Cavity benchmark for incompressible flow at increasing Reynolds numbers.",
+            "description": "A monolithic steady Navier-Stokes solver using Taylor-Hood FEM on an unstructured triangular mesh with feature-driven adaptive refinement and Reynolds number continuation to handle high-convection regimes.",
+            "filename": "CG_2D.jl"
+        },
+        "chunks_created": 13
+    },
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Numerical_Methods/Scripts/DG_1D.jl": {
+        "analysis": {
+            "method": "DGSEM (Discontinuous Galerkin Spectral Element Method)",
+            "equation": "1D Inviscid Burgers' Equation",
+            "dimensionality": "1D",
+            "solver_or_optimizer": "SSPRK43 (Strong Stability Preserving Runge-Kutta 4(3))",
+            "enhancements": "Hybrid DG-FV shock capturing, Hennemann-Gassner indicator, TreeMesh (adaptive Cartesian mesh), CFL-based adaptive time-stepping, Lobatto-Legendre spectral basis, Method of Lines (MOL)",
+            "BCs": "Periodic",
+            "problem": "Simulation of shock formation from a sinusoidal initial condition in the 1D Inviscid Burgers' equation.",
+            "description": "The code implements a high-order DGSEM with a hybrid shock-capturing strategy (Hennemann-Gassner) and an SSPRK43 time integrator to solve the 1D Inviscid Burgers' equation on a periodic mesh.",
+            "filename": "DG_1D.jl"
+        },
+        "chunks_created": 7
+    },
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Numerical_Methods/Scripts/Fourier_Spectral.jl": {
+        "analysis": {
+            "method": "Fourier Spectral Method of Lines",
+            "equation": "Allen-Cahn equation (Reaction-Diffusion)",
+            "dimensionality": "1D spatial, 1D temporal",
+            "solver_or_optimizer": "ETDRK4 (Exponential Time Differencing Runge-Kutta 4th Order)",
+            "enhancements": "IMEX (Implicit-Explicit) splitting, Pseudo-spectral method for nonlinearities, Spectral derivative precomputation, Exponential Time Differencing (ETD), FFT-based spatial discretization",
+            "BCs": "Periodic",
+            "problem": "Evolution of a reaction-diffusion system (Allen-Cahn) on a periodic 1D domain.",
+            "description": "The code implements a Fourier spectral method to solve the Allen-Cahn equation, utilizing ETDRK4 for time integration and SplitODEProblem to separate stiff linear diffusion from non-stiff cubic reaction terms.",
+            "filename": "Fourier_Spectral.jl"
+        },
+        "chunks_created": 6
+    },
+    "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Numerical_Methods/Scripts/cNS_DGSEM.jl": {
+        "analysis": {
+            "method": "Discontinuous Galerkin Spectral Element Method (DGSEM) with Hybrid Shock Capturing (DG-FV)",
+            "equation": "Compressible Navier-Stokes Equations",
+            "dimensionality": "2D",
+            "solver_or_optimizer": "RDPK3SpFSAL49 (Low-Storage Runge-Kutta)",
+            "enhancements": "Adaptive Mesh Refinement (AMR) via p4est, Hybrid DG-FV Shock Capturing (Hennemann-Gassner), Entropy-Stable Fluxes (flux_ranocha), Bassi-Rebay 1 (BR1) Viscous Formulation, L\u00f6hner Error Indicator for mesh adaptation, Low-Mach Number Initialization, Method of Lines (MOL) framework, Custom NPZ serialization for surrogate modeling",
+            "BCs": "{'Momentum': 'No-Slip (Moving Lid and Static Walls)', 'Thermal': 'Adiabatic (Neumann)', 'Inviscid': 'Slip-Wall'}",
+            "problem": "Lid-Driven Cavity benchmark in the low-Mach number limit (Ma=0.1).",
+            "description": "The code implements a high-order DGSEM solver for the 2D compressible Navier-Stokes equations, featuring dynamic h-refinement on quadtree meshes and hybrid shock capturing. It utilizes explicit low-storage Runge-Kutta time integration to simulate shear-driven flow in a square cavity.",
+            "filename": "cNS_DGSEM.jl"
+        },
+        "chunks_created": 13
+    }
+}

@@ -1,5 +1,6 @@
 # %%
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+import argparse
 import os
 import sys
 file_path = os.getcwd()
@@ -9,14 +10,10 @@ print(project_root)
 if project_root not in sys.path:
     sys.path.append(project_root)
 from dotenv import load_dotenv
-from langchain.agents import AgentExecutor
-from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import create_tool_calling_agent
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langchain_chroma import Chroma
-from langchain_ollama import OllamaEmbeddings
 from langchain_core.tools import tool
 from typing import Dict, List, Union, Any 
 from pathlib import Path
@@ -38,6 +35,45 @@ from pathlib import Path
 from crunch_llm.code.agents import *
 from crunch_llm.code.utils import *
 from crunch_llm.code.teams_conceptualization import *
+
+# %%
+# --- 0. Transcript logging ---
+# Mirror the full Coordinator <-> User <-> Gatekeeper interaction to a plain-text
+# log so every formalization session is auditable.
+LOG_DIR = Path(__file__).parent / "Formalization_logs"
+LOG_DIR.mkdir(exist_ok=True)
+_session_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+_log_path = LOG_DIR / f"formalization_{_session_stamp}.txt"
+_log_file = open(_log_path, "a", encoding="utf-8")
+
+
+class _Tee:
+    """Write everything sent to stdout to both the terminal and the log file."""
+
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for s in self.streams:
+            s.write(data)
+
+    def flush(self):
+        for s in self.streams:
+            s.flush()
+
+
+sys.stdout = _Tee(sys.__stdout__, _log_file)
+
+
+def logged_input(prompt=""):
+    """input() that also records the user's typed answer into the transcript."""
+    value = input(prompt)
+    _log_file.write(value + "\n")
+    _log_file.flush()
+    return value
+
+
+print(f"[System]: Transcript logging to: {_log_path}\n")
 
 # %%
 ## Collection Team
@@ -105,9 +141,9 @@ def chat_with_coordinator(coordinator_agent):
     while True:
         # 1. Get User Input
         if pending_plan:
-            user_input = input("You (Approve/Modify): ").strip()
+            user_input = logged_input("You (Approve/Modify): ").strip()
         else:
-            user_input = input("You: ").strip()
+            user_input = logged_input("You: ").strip()
         
         # 2. Check Exit Conditions
         if user_input.lower() in ['exit', 'quit']:
@@ -148,8 +184,65 @@ def chat_with_coordinator(coordinator_agent):
     return None
 
 
+def formalize_from_text(coordinator_agent, request_text):
+    """
+    Non-interactive path: hand the Coordinator a single, complete problem
+    description in one message and return its formalized plan.
+
+    The interactive loop reads one line per Enter, so a multi-line spec piped
+    on stdin would be split into many turns. This sends the whole request as a
+    single message instead, which is what the Coordinator needs to emit the
+    final specification in one shot.
+    """
+    print("=" * 70)
+    print("ATHENA Coordinator Agent (batch mode)")
+    print("=" * 70)
+    print("Request received:\n")
+    print(request_text)
+    print("\n" + "-" * 70 + "\n")
+
+    # Nudge the Coordinator to finalize rather than ask clarifying questions,
+    # since a complete spec is provided up front.
+    primed = (
+        request_text
+        + "\n\nAll information needed is provided above. Produce the final, "
+        "complete problem specification now in the required markdown format, "
+        "ending with the approval instruction."
+    )
+    result = coordinator_agent.run(primed)
+    if isinstance(result, dict) and 'output' in result:
+        response = result['output']
+    else:
+        response = str(result)
+    print(f"Coordinator:\n{response}\n")
+    return response
+
+
 # %%
-user_request = chat_with_coordinator(coordinator_agent)
+# --- 4. Entry point: interactive by default, batch when given a request ---
+_parser = argparse.ArgumentParser(
+    description="Formalize a scientific-computing problem into an ATHENA request JSON."
+)
+_parser.add_argument(
+    "--request-file",
+    default=None,
+    help="Path to a text file with the complete problem description. "
+         "Runs non-interactively (no chat loop).",
+)
+_args, _ = _parser.parse_known_args()
+
+if _args.request_file:
+    _request_text = Path(_args.request_file).read_text(encoding="utf-8").strip()
+    user_request = formalize_from_text(coordinator_agent, _request_text)
+elif not sys.stdin.isatty():
+    # stdin is a pipe/redirect: treat the entire stream as one request.
+    _request_text = sys.stdin.read().strip()
+    user_request = (
+        formalize_from_text(coordinator_agent, _request_text)
+        if _request_text else None
+    )
+else:
+    user_request = chat_with_coordinator(coordinator_agent)
 
 
 if user_request:

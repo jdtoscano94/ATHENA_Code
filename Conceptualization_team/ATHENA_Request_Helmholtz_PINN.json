@@ -1,0 +1,13 @@
+{
+    "problem_name": "Helmholtz_PINN",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "B",
+            "task": "PINN setup, training, and evaluation (SciML-PINN)."
+        }
+    ],
+    "description": "PINN solution of the Helmholtz equation (SciML-PINN).",
+    "user_request": "Lets solve the 2D Helmholtz equation.\n\nThe equation is:\n$$\nu_{xx} + u_{yy} + k^2 u = g(x, y)\n$$\n\nwhere g(x, y)  is chosen to satisfy the  solution: u_{an}=sin(pi a1)sin (pi a2)\n\nThe spatio-temporal domain is $(x, y) \\in [-1, 1] \times [-1, 1]$.\n \nThe boundary conditions are **periodic** in both $x$ and $y$. And let a_1=1 and a_2=4 and k=1.",
+    "source_notebook": "Examples_PINNs/Helmholthz.ipynb"
+}
