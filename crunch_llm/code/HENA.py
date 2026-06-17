@@ -210,13 +210,13 @@ class _RunLogger:
 # ==========================================================================
 def build_agents_sciC(cfg):
     """Family A agents (teams_SciC)."""
-    # Strategist: notebook overrides the gemini choice with gpt-5.2; keep the
+    # Strategist: notebook overrides the gemini choice with gpt-5.4; keep the
     # effective one (swap model/provider here if desired).
     strategist_agent = memoryAgent(
-        model='gpt-5.2', verbose=False,
+        model='gpt-5.4', verbose=False,
         system_prompt=TA.strategist_system_prompt, model_provider='openai')
     critic_agent = memoryAgent(
-        model='gpt-5.1', verbose=False,
+        model='gpt-5.4', verbose=False,
         system_prompt=TA.strategist_critic_system_prompt, model_provider='openai')
 
     retriever_agent = Retriever_Agent(
@@ -243,7 +243,7 @@ def build_agents_sciC(cfg):
         model='gpt-oss:120b', verbose=False,
         system_prompt=TA.naming_agent_system_prompt_PINN)
     debugger_agent = StructuredAgent(
-        model='claude-sonnet-4-5', verbose=False,
+        model='claude-sonnet-4-6', verbose=False,
         system_prompt=TA.debugger_system_prompt_numerical, model_provider='claude')
 
     advisor_agent = aRAGAgent_multimodal(
@@ -276,7 +276,7 @@ def build_agents_pinn(cfg):
     # NOTE: the original notebook referenced strategist_critic_numerical_prompt_PIML,
     # which does not exist in this repo; the correct symbol is *_system_prompt_PIML.
     critic_agent = memoryAgent(
-        model='gpt-5.1', verbose=False,
+        model='gpt-5.4', verbose=False,
         system_prompt=TB.strategist_critic_system_prompt_PIML, model_provider='openai')
 
     retriever_agent = Retriever_Agent(
@@ -293,11 +293,11 @@ def build_agents_pinn(cfg):
         embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
         db_path=cfg['db_functions_ollama'], collection_name=cfg['modules_name'], k=1)
     librarian_agent = memoryAgent(
-        model='gemini-2.5-pro', verbose=False,
+        model='gemini-3.1-pro-preview', verbose=False,
         system_prompt=TB.librarian_system_prompt_PIML, model_provider='google')
 
     planner_agent = memoryAgent(
-        model='gemini-2.5-flash', verbose=False,
+        model='gemini-3.1-pro-preview', verbose=False,
         system_prompt=TB.planner_agent_system_prompt_PIML, model_provider='google')
     planner_parser_agent = StructuredAgent(
         model='gpt-oss:120b', system_prompt=TB.planner_parser_system_prompt, verbose=False)
@@ -311,7 +311,7 @@ def build_agents_pinn(cfg):
         model='gpt-oss:120b', verbose=False,
         system_prompt=TB.naming_agent_system_prompt_PINN)
     debugger_agent = StructuredAgent(
-        model='claude-sonnet-4-5', verbose=False,
+        model='claude-sonnet-4-6', verbose=False,
         system_prompt=TB.debugger_system_prompt_numerical, model_provider='claude')
 
     advisor_agent = aRAGAgent_multimodal(
@@ -353,19 +353,19 @@ def build_agents_operator(cfg):
         embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
         db_path=cfg['db_functions_ollama'], collection_name=cfg['modules_name'], k=1)
     librarian_agent = memoryAgent(
-        model='gemini-2.5-pro', verbose=False,
+        model='gemini-3.1-pro-preview', verbose=False,
         system_prompt=TC.librarian_system_prompt_ON, model_provider='google')
     planner_agent = memoryAgent(
-        model='gemini-2.5-flash', verbose=False,
+        model='gemini-3-flash-preview', verbose=False,
         system_prompt=TC.planner_agent_system_prompt_ON, model_provider='google')
     patcher_agent = StructuredAgent(
         model='gpt-oss:120b', system_prompt=TC.patcher_agent_system_prompt_PINN, verbose=False)
     debugger_agent = StructuredAgent(
-        model='gemini-2.5-flash', model_provider='google',
+        model='gemini-3-flash-preview', model_provider='google',
         system_prompt=TC.debugger_system_prompt_PINN, verbose=False)
 
     advisor_agent = aRAGAgent_multimodal(
-        model='gemini-2.5-pro', verbose=True,
+        model='gemini-3.1-pro-preview', verbose=True,
         system_prompt=TC.advisor_system_prompt_ON, model_provider='google',
         embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
         db_path=cfg['db_functions'], collection_name=cfg['modules_name'], k=5)
@@ -373,7 +373,7 @@ def build_agents_operator(cfg):
         model='gpt-oss:120b', verbose=False,
         system_prompt=TC.advisor_parser_system_prompt_ON)
     strategist_agent = aRAGAgent_single_chunk(
-        model='gemini-2.5-flash', verbose=False,
+        model='gemini-3-flash-preview', verbose=False,
         system_prompt=TC.strategist_agent_system_prompt_ON, model_provider='google',
         embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
         db_path=cfg['db_functions'], collection_name=cfg['modules_name'], k=2)

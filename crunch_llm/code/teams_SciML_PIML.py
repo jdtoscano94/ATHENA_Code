@@ -1006,17 +1006,24 @@ Any PINN model is composed on 3 parts. Input transpformations, a universal appro
 
 **Crucial:** EXPLICITLY instruct the Planner to follow this structure:
 
-Input->Input Transormation (i.e., Normalization-> Embedding)-> Main Body-> Output tranformation-> Output. 
+Input->Input Transormation (i.e., Normalization-> Embedding)-> Main Body-> Output tranformation-> Output.
 
-CRITICAL: THE EMBEDDING GOES AFTER NORMALIZATION NOT BEFORE!
+CRITICAL: IF a coordinate is normalized, THE EMBEDDING GOES AFTER NORMALIZATION (NOT BEFORE). BUT normalization is OPTIONAL: if a coordinate is already in a nice range ($[0,1]$ or $[-1,1]$) you SKIP normalization (it is the identity) and the embedding consumes the raw coordinate directly. Either way, the periodic embedding's `Lx` MUST equal the range of whatever coordinate enters it (see 4.1).
 
 ***4.1. Input Transformations
 - **Input Composition Rule:**
-  - If a variable is embedded (e.g., $x$ via Periodic features), **DO NOT** pass the raw normalized variable to the network. Pass **ONLY** the embeddings (and other non-embedded variables like $t$).
-  - *Reasoning:* Passing raw $x$ breaks the hard constraint of periodicity. 
+  - If a variable is embedded (e.g., $x$ via Periodic features), **DO NOT** pass the bare coordinate to the MAIN BODY alongside/instead of its embedding. The main body must receive **ONLY** the embedding (and other non-embedded variables like $t$).
+  - *Reasoning:* The main body must see the periodic embedding (cos/sin), not the bare coordinate, so the output is periodic by construction. NOTE: the *embedding itself* is computed from the periodic coordinate (raw physical by default; or its normalized version, in which case set `Lx` to match — see the PERIODIC COORDINATE rule below). "Don't pass raw $x$" means "don't feed raw $x$ to the MLP body", NOT "rescale $x$ just to feed the embedding".
 
-CRITICAL: ALL NORMALIZATIONS MUST BE DFIFFERENTIABE AND MUST BE ONLY APPLIED INSIDE THE CALL FUNCTION! EXPLICITLY SAY THIS TO THE PLANNER AND STRICLY FORBID NORMALIZATIONS OUTSIDE THE CALL FUNCTION. 
+CRITICAL: ALL NORMALIZATIONS MUST BE DFIFFERENTIABE AND MUST BE ONLY APPLIED INSIDE THE CALL FUNCTION! EXPLICITLY SAY THIS TO THE PLANNER AND STRICLY FORBID NORMALIZATIONS OUTSIDE THE CALL FUNCTION.
 - **Normalization:** Normalize inputs to match the chosen activation function range. Time can only be normalized to 0 and 1. Dont use negative times.
+  - **DO NOT renormalize a coordinate that is already in a good range.** If a variable is already within $[0,1]$ or $[-1,1]$ (a "nice", tanh-friendly range), leave it AS IS — do NOT add a MinMax/any scaler for it. Adding a redundant scaler is the step that introduces range/`Lx` mismatches and other bugs. Only normalize a coordinate whose raw range is NOT already nice (e.g. $x\in[0,100]$, or $t$ in seconds). Explicitly tell the Planner which coordinates are passed through unchanged.
+- **CRITICAL — PERIODIC EMBEDDING: YOU MUST DERIVE `Lx`.** The Periodic Fourier embedding computes $\cos/\sin(2\pi k\, x / L_x)$. For the output to be exactly periodic, `Lx` MUST equal the **range (max − min) of the coordinate values AS THEY ENTER THE EMBEDDING — i.e. AFTER any normalization you apply.** If `Lx` ≠ that range, the argument sweeps only $\pi k$ (or some other fraction) instead of $2\pi k$ across the domain, so only some harmonics stay periodic and the $k=1$ fundamental becomes NON-periodic.
+  - **Derivation rule (do this explicitly and state the number to the Planner):** `Lx = x_embed_max - x_embed_min`, where `x_embed_*` are the bounds of the coordinate *immediately before* the embedding call.
+    - Feed raw physical $x \in [-1,1]$ → `Lx = 2.0`.
+    - Normalize to $[0,1]$ first → then `Lx = 1.0`.
+    - Normalize to $[-1,1]$ (a no-op when $x$ already in $[-1,1]$) → `Lx = 2.0`.
+  - So renormalizing is FINE as long as you recompute `Lx` to match the new range — the two must always be consistent. Do NOT hard-code `Lx=2.0` and then min-max the coordinate to $[0,1]$ (that mismatch is the classic bug). Tell the Planner BOTH the normalization range AND the matching `Lx` value, explicitly.
 - **Feature Embeddings (CHOOSE ONE ONLY):**
   - **Global Stability Constraint:** For **ANY** Fourier embedding (Periodic or Random), you **MUST** use `degree < 20`. UNLESS THE ADVISOR SUGGESTS OTHERWISE.
   - **Option A: Periodic Fourier Features (Priority):** Use **ALWAYS** if the domain has Periodic BCs. MUST start WITH degree=2 and increase sequentiall if the advisor requires it.
@@ -1222,8 +1229,8 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
         * Explicitly instruct the planner to save the data following the USER_QUESTION.
 
     * **Constraint D: The Reynolds (or viscocity)/ Singularity Ladder (CRITICAL THRESHOLDS):**
-        * *Rule 0 (Re 100-300):* DO NOT **Continuation** (Annealing). Direct training is possible
-        * *Rule 1 (Re > 300):* Requires **Continuation** (Annealing). Direct training usually fails.
+        * *Rule 0 (Re 100-400):* DO NOT **Continuation** (Annealing). Direct training is possible
+        * *Rule 1 (Re > 400):* Requires **Continuation** (Annealing). Direct training usually fails.
         * *Rule 2 (Re > 1000):* Requires **Regularization** (Viscosity) AND **Continuation**.
         * *Rule 3 (Re > 1e4 / Euler):* Requires **Entropy Regularization** (Uniqueness) AND **Regularization** (Stability) AND **Continuation**.
         * *Verdict:* **REJECT** if the plan violates these thresholds.
@@ -1986,15 +1993,17 @@ Follow these steps in exact order. Do not skip ahead.
     1. **Loss & Error History (Top plots):**
        * Y-axis range? (min/max values)
        * Shape: Smooth? Jumps? How many stages?
-       * **FINAL SEGMENT (after last jump) - CRITICAL ANALYSIS:**
-         * **Compare the error at the RIGHTMOST point vs 20\\% back from the end.**
-         * Example: If plot ends at iteration 12,000, compare error at iteration 12,000 vs error at iteration 9,600.
-         * **Is the rightmost value LOWER than the value 20% back?**
-           * **IF YES:** The curve is **STILL DECREASING** - NOT converged!
-           * **IF NO (same value):** The curve is **FLAT** - converged.
-         * **Quantify if decreasing:** "Error dropped from X to Y in final segment"
-       * If oscillating: magnitude? (e.g., "between 1e-3 and 1e-2")
-       * **What is the EXACT error value at the RIGHTMOST POINT?**
+       * **FINAL REGION (the last training stage, i.e. after the last jump/transition) - CRITICAL ANALYSIS:**
+         * First identify the FINAL REGION: the segment after the last optimizer/continuation transition. Find the iteration at its **50\\% mark (midpoint)** and at its **end (rightmost point)**.
+         * **YOU MUST WRITE DOWN TWO EXPLICIT NUMBERS — do NOT just assert "flat".** The curve is noisy/oscillating, so for each location read the **average/typical level of the oscillation band** (the center of the noise band, NOT the single lowest dip):
+           * `A` = **average band level at the 50\\% midpoint** of the final stage = ___ (state the number you read off the y-axis)
+           * `B` = **average band level at the END** of the final stage = ___ (state the number you read off the y-axis)
+         * Example: if the final stage spans 10,000-50,000, read `A` = the band center around iteration 30,000, and `B` = the band center around iteration 50,000.
+         * **Now compare A and B explicitly:**
+           * **IF `B` is essentially the SAME as `A` (within ~2x, both sitting on the same horizontal floor):** the curve is **FLAT** between the midpoint and the end → converged.
+           * **IF `B` is LOWER than `A` (the band dropped from the midpoint to the end, e.g. A≈7e-8 and B≈2e-8):** the curve is **STILL DECREASING ON AVERAGE** (noisy but trending down) → NOT converged!
+         * **You may NOT write "flat" / "plateaued" / "stabilized" unless your own A and B are about equal.** If you wrote A higher than B, you MUST conclude STILL DECREASING — no exceptions, no relabeling.
+         * **DO NOT be fooled by noise:** read the band CENTER at A and at B; ignore individual lucky dips and individual upward spikes.
 
     2. **Residual/Pointwise Error (Heatmap):**
        * Where are largest errors? (shock front/corners/uniform)
@@ -2002,8 +2011,12 @@ Follow these steps in exact order. Do not skip ahead.
     3. **Solution Fields (Reference vs Prediction):**
        * Visually similar? Visible differences?
 
-    **CRITICAL RULE FOR CONVERGENCE:**
-    A curve is ONLY "flat/plateaued" if the error and loss values in the **last 50 \\% of iterations** are approximately constant (within the same order of magnitude). If the error is still dropping (even slowly), it is NOT converged.
+    **CRITICAL RULE FOR CONVERGENCE (DUAL-CURVE TEST - MANDATORY):**
+    A run is "converged/plateaued" ONLY IF, for **BOTH** the **Loss** curve **AND** the **Error** curve, the two explicit numbers you read off the plot are about equal: `A` = the average band level at the **50\\% midpoint** of the final stage, and `B` = the average band level at the **END** of the final stage. **Plateau requires `A` ≈ `B` (same horizontal floor, within ~2x).** If `B` < `A` for EITHER curve (the band dropped from midpoint to end), it is NOT a plateau. Judge the **center of the oscillation band** at each location, never a single point or the single best dip — and you must actually state the `A` and `B` numbers, not just assert "flat".
+    * **PLATEAU COMES ONLY FROM THE CURVE (no assumptions):** A "plateau" is established **solely** from the visible shape of the loss/error curves in the plot. You **MAY NOT** declare a plateau, "convergence", or "optimal" from anything you cannot see flatten on the curve. **STRICTLY FORBIDDEN as plateau evidence:** iteration-count arithmetic ("scheduled X but stopped at Y"), "early termination", "the optimizer hit its gradient tolerance", optimizer internals, or any inferred/assumed narrative. **Do NOT invent schedule numbers.** If the curve is not visibly flat, it is NOT a plateau — no matter why you believe the run stopped. (You may MENTION other signals in your narrative, but they can NEVER substitute for a flat curve in the plateau decision.)
+    * **THE LOSS GATE (do this FIRST):** Look at the **Loss** curve. If the Loss's **average band is still decreasing** across the last 50\\% (its average level in the second half of the window is lower than in the first half), then the run is **NOT converged** — it ran out of iterations while still improving. This holds **EVEN IF the Error curve looks flat.** A still-descending loss ALWAYS means "not converged → run longer".
+    * **CLOSE THE "SAME ORDER OF MAGNITUDE" LOOPHOLE:** "Within the same order of magnitude" is **NOT** sufficient to call a curve flat. If the **average band level is still falling** across the last 50\\% (or the floor/minimum the noise oscillates around keeps dropping), the curve is **DESCENDING ON AVERAGE, not plateaued** — do NOT score it as a plateau. A true plateau is genuinely horizontal: the average level stops improving and the noise just oscillates around a fixed floor.
+    * **VERDICT:** If either curve is still descending, you MUST diagnose **Budget-Limited / Premature Stop** (see Check 0 below) and **REJECT_FOR_REFINEMENT** — never APPROVE a still-improving run as "optimal".
 
 4.  **Confirm with [STDOUT LOG]:**
     * **CRITICAL: The plots are still your primary source. The log is only for confirmation.**
@@ -2022,7 +2035,14 @@ Follow these steps in exact order. Do not skip ahead.
             * **The "minimum" is irrelevant if the model didn't stay there.**
         * **The plateau must be at the final value, not at some earlier minimum.**
 5.  **Forensic Analysis & Root Cause Diagnosis:**
-    **CRITICAL LOGIC HIERARCHY (Evaluate sequentially 1 -> 2 -> 3 -> 4):**
+    **CRITICAL LOGIC HIERARCHY (Evaluate sequentially 0 -> 1 -> 2 -> 3 -> 4):**
+
+    **0. CHECK: Budget-Limited / Premature Stop (Still Improving) — EVALUATE THIS FIRST**
+        * *Symptoms:* The run is STABLE (no NaN/explosion) and accurate, BUT the **Loss curve and/or the Error curve are STILL DESCENDING at the rightmost point** (the minimum is reached only at the very last iteration). The training hit its iteration cap before flattening. This is the most common cause of a good-but-not-great final error.
+        * *Distinction (CRITICAL):* Do NOT confuse this with "Success". A run is ONLY a success if BOTH curves have a genuinely FLAT average band across the last 50\\% of the final region (see the Dual-Curve Test above). A descending average loss = the model was still learning = **NOT done.**
+        * *No rationalizing (CRITICAL):* Do NOT relabel a non-flat curve as converged via "the optimizer must have hit its tolerance" or "it early-terminated, so it's done." **Early termination is NOT evidence of a plateau** — a quasi-Newton optimizer (e.g. SSBroyden/BFGS) can stop on line-search breakdown or a loose tolerance while the error is still dropping. If the final-region tail is still descending OR oscillating-while-the-minimum-improves, this is Budget-Limited: recommend extending/restarting the LAST stage (e.g. "increase the last stage's iterations and reinitialize the Hessian to continue"), NOT approval.
+        * *The Fix:* **REJECT_FOR_REFINEMENT.** Recommend **"Increase the number of iterations of the LAST training stage (e.g. 2-5x) so both the loss and error curves flatten before the run ends."** Do NOT change architecture, embeddings, or physics — the setup is working; it simply needs more steps to reach its floor.
+        * *Rationale:* Approving a still-descending run as "optimal" forfeits the accuracy that more iterations would have reached.
 
     **1. CHECK: Instability (Explosion/Divergence)**
         * *Symptoms:* Loss $\to \infty$, NaNs, or massive unphysical values (e.g., Negative Density).
@@ -2101,11 +2121,11 @@ Follow these steps in exact order. Do not skip ahead.
 * **CRITICAL: You are scoring based on the VISUAL PLOTS, specifically the final segment after the last jump in continuation training.**
 * **Convergence Logic:**
     * *Bad Jumps:* Erratic spiking without recovery indicates instability.
-    * *The "Plateau" Rule:* The loss must **plateau** at the end of the final stage (after the last jump).
+    * *The "Plateau" Rule:* The loss must **plateau** at the end of the final stage (after the last jump). A "plateau" requires BOTH the loss AND error curves to have a genuinely FLAT **average band** over the last 50\\% (average level in the second half of the window ≈ average level in the first half) — see the Dual-Curve Test. **A curve whose average band is still DESCENDING across the last 50\\% is NOT a plateau, even if it is noisy/spiky** — it is a premature stop (Check 0) and must NOT be scored as converged.
 * **Scoring Guide:**
-    * **15 (Perfect):** Boundaries satisfied. Loss curve shows distinct, stable plateaus. The final segment (after last jump) is flat and stable.
-    * **8-12 (Acceptable):** Minor drift. Loss curve noisy but trending down in the final segment.
-    * **0-7 (Unstable):** BC violations. Loss is erratic/divergent in the final segment. No final plateau.
+    * **15 (Perfect):** Boundaries satisfied. BOTH loss and error curves are FLAT and stable in the final segment (after last jump) — genuinely horizontal, not merely smooth-while-descending.
+    * **8-12 (Acceptable):** Minor drift. Loss curve noisy but flat in the final segment.
+    * **0-7 (Premature/Unstable):** BC violations, OR loss is erratic/divergent, OR **the loss/error is still descending at the right edge (ran out of iterations before flattening — Budget-Limited, Check 0).** No genuine final plateau.
 
 **4. Methodological Optimality (PINN Specific) (0-15 Points)**
 * **Criteria:** Is the architecture and formulation optimal? (Leniency Rule applies if Accuracy >= 30).
@@ -2153,17 +2173,17 @@ Follow these steps in exact order. Do not skip ahead.
             * **Identify the FINAL STAGE:**
                 * For standard training: entire curve is one stage
                 * For continuation/curriculum: identify the last jump, the segment AFTER that jump is the final stage
-            * **Within the final stage, compare the RIGHTMOST point vs the point at 50% of that stage's length.**
-            * Example: If final stage runs from iteration 50,000 to 70,000 (20k iterations):
-                * Compare error at iteration 70,000 vs error at iteration 60,000
-            * **IF error at rightmost < error at 50% of final stage:** Curve is STILL DECREASING in final stage.
-            
-            * **IF STILL DECREASING:**
+            * **Within the final stage, take the last 50\\% as the window and compare the AVERAGE BAND LEVEL of the first half of that window vs the second half** (judge the center of the noisy oscillation band, NOT a single point and NOT the single best dip).
+            * Example: If final stage runs from iteration 50,000 to 70,000 (20k iterations), the last 50\\% is 60,000-70,000:
+                * Compare the average error level around 60,000-65,000 vs around 65,000-70,000
+            * **IF the average band level in the second half is still lower than in the first half (by more than ~2x):** Curve is STILL DECREASING ON AVERAGE in the final stage.
+
+            * **IF STILL DECREASING ON AVERAGE (noisy but trending down):**
                 * `REJECTED_FOR_REFINEMENT`
-                * "Score is excellent but error still decreasing in the second half of the final stage (from [value] to [value]). Duplicate the number of iterations for the final stage."
+                * "Score is excellent but the average error is still decreasing across the last 50% of the final stage (from ~[value] to ~[value], judged by the band center). Duplicate the number of iterations for the final stage."
                 * **STOP. Do NOT check history. Do NOT suggest exploration.**
-            
-            * **IF FLAT (stable in second half of final stage):**
+
+            * **IF FLAT (average band horizontal — just noise around a fixed floor across the last 50%):**
                 * **PROCEED to Step 2 (History Check).**
     
     * **If Current Score < 90:**
