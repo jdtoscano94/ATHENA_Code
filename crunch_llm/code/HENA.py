@@ -118,6 +118,13 @@ def get_config(family, overrides=None):
 LOG_BASE = os.path.join(os.path.dirname(__file__), "HENA_logs")
 FAMILY_LABEL = {"A": "A_SciC", "B": "B_PINN", "C": "C_Operator"}
 
+# Normal-run convention: mirror each notebook's <ProblemName>_log.txt into its
+# Examples_<family> folder. Family A defaults to Examples_NM; if the agents
+# determine the problem is analytical-exact, the log may be moved to
+# Examples_analytical_exact afterwards (see README).
+EXAMPLES_DIR = {"A": "Examples_NM", "B": "Examples_PINNs", "C": "Examples_DeepONet"}
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 class _Tee:
     """Write everything sent to stdout to both the terminal and the log file."""
@@ -154,19 +161,33 @@ class _RunLogger:
 
     def __init__(self, family, log_base=None, run_name=None):
         self.family = family.upper()
-        self.log_base = log_base or LOG_BASE
         self.run_name = run_name
         self.stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.fam_dir = os.path.join(self.log_base, FAMILY_LABEL.get(self.family, self.family))
+        if log_base is None:
+            # Default: mirror the notebook convention —
+            # Examples_<family>/<ProblemName>_log.txt at the repo root.
+            self.fam_dir = os.path.join(
+                REPO_ROOT,
+                EXAMPLES_DIR.get(self.family, FAMILY_LABEL.get(self.family, self.family)))
+            self._examples_style = True
+        else:
+            # Explicit override keeps the <log_base>/<FAMILY_LABEL>/hena_*.txt layout.
+            self.fam_dir = os.path.join(log_base, FAMILY_LABEL.get(self.family, self.family))
+            self._examples_style = False
         self.path = None
         self._file = None
         self._prev_stdout = None
 
+    def _filename(self, base):
+        """Log file name for a given problem/run base name."""
+        if self._examples_style:
+            return f"{base}_log.txt"
+        return f"hena_{self.family}_{base}_{self.stamp}.txt"
+
     def __enter__(self):
         os.makedirs(self.fam_dir, exist_ok=True)
         init_name = _slug(self.run_name, fallback="run")
-        self.path = os.path.join(
-            self.fam_dir, f"hena_{self.family}_{init_name}_{self.stamp}.txt")
+        self.path = os.path.join(self.fam_dir, self._filename(init_name))
         self._file = open(self.path, "a", encoding="utf-8")
         self._prev_stdout = sys.stdout
         sys.stdout = _Tee(self._prev_stdout, self._file)
@@ -193,8 +214,7 @@ class _RunLogger:
         # Rename to include the discovered problem name, if any.
         final = _slug(getattr(self, "_final_name", None), fallback="")
         if final:
-            new_path = os.path.join(
-                self.fam_dir, f"hena_{self.family}_{final}_{self.stamp}.txt")
+            new_path = os.path.join(self.fam_dir, self._filename(final))
             if new_path != self.path:
                 try:
                     os.replace(self.path, new_path)

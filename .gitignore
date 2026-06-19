@@ -31,6 +31,16 @@ Results/**
 !Results/**/
 !Results/**/*.jl
 !Results/**/*.py
+# Exploratory candidate runs copied in locally so Similarity_Analysis/Similarity.ipynb
+# runs top-to-bottom; kept out of the commit (repo stays the curated subset).
+Results/NM_codes/Burgers_Periodic_SinHalfSum/2025_12_11_2154/
+Results/NM_codes/Burgers_Periodic_SinHalfSum/2025_12_15_2212/
+Results/NM_codes/Burgers_Periodic_SinHalfSum/2025_12_15_2228/
+Results/NM_codes/Burgers_Periodic_SinSum/2025_12_11_2256/
+
+# Dispatcher run transcripts. Normal runs now log to Examples_<family>/<name>_log.txt;
+# this dir only fills when an explicit log_base= override is passed. Scratch — not tracked.
+crunch_llm/code/HENA_logs/
 scratch/
 
 # --- Local backups ---
@@ -45,6 +55,9 @@ Reviews/
 *.ipynb
 # ...except the paper-figure notebooks (outputs stripped, repo-relative paths)
 !Plots/*.ipynb
+# ...and the code-similarity analysis notebook (same convention: outputs stripped,
+# repo-relative paths) — part of the reproducibility artifacts.
+!Similarity_Analysis/Similarity.ipynb
 
 # --- Large reference dataset (download from Google Drive, see README) ---
 Documents/codes/Data/Burger_1000_5000.mat

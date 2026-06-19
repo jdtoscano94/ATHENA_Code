@@ -11,6 +11,12 @@ ATHENA is an agentic framework that orchestrates workflows across three distinct
 
 Please follow the steps below to set up each environment.
 
+> **Tip — let Claude Code do the wiring.** This setup has several pieces that must
+> all agree (the two run bridges, `DB_BASE`/`RESULTS_BASE`, the Ollama backend, the
+> Chroma DB paths, API keys). The fastest way to get it running on a new machine is to
+> hand the whole pre-flight to a coding agent that reads `CLAUDE.md` — see
+> [Recommended: drive setup, launch & monitoring with Claude Code](#recommended-drive-setup-launch--monitoring-with-claude-code).
+
 ## 1. Primary Environment (Python + PyTorch)
 This is the main agentic environment (ATHENA).
 
@@ -73,7 +79,7 @@ This is the main agentic environment (ATHENA).
 ## 2. JAX Environment (NABLA-SciML)
 The JAX environment handles specific differentiation and optimization tasks using `NABLA-SciML` and `SSBroyden`.
 
-### Setup Instructions (Required for vRBA)
+### Setup Instructions (Required for PIML)
 
 1.  **Clone the repository:**
     ```bash
@@ -94,7 +100,7 @@ The JAX environment handles specific differentiation and optimization tasks usin
     ```
 
 4.  **Install the NABLA package:**
-    This installs the library in editable mode, which is necessary to import the vRBA models and the SSBroyden optimizer.
+    This installs the library in editable mode, which is necessary to import the PIML models.
     ```bash
     pip install -e .
     ```
@@ -238,14 +244,29 @@ StructuredAgent(model='gpt-5.1',                 model_provider='openai', ...)
 > incompatible vector dimensions). If you change the embedding model, re-ingest the
 > affected databases.
 
-The defaults used in this repository are:
+The defaults shipped in `crunch_llm/code/HENA.py` (the `build_agents_*` factories) are:
 
 | Role | Default | Provider |
 |---|---|---|
-| Analyzer / agents | `gemini-3-flash-preview` | `google` |
+| Generation agents (strategist, retriever, planner, patcher, inspector, debugger, advisor, …) | `gpt-oss:120b` | `ollama` (local) |
 | Embeddings | `models/gemini-embedding-001` (3072-dim) | `google` |
 
-These run entirely through cloud APIs — **no local GPU or Ollama server is required.**
+So **a running Ollama server is required** for the default configuration (only the embeddings
+run on a cloud API). Start it **before any run**:
+
+```bash
+module load ollama          # on HPC clusters that provide it (e.g. Oscar / Brown); skip elsewhere
+ollama serve &              # start the server; leave it running (listens on 127.0.0.1:11434)
+ollama pull gpt-oss:120b    # one-time: fetch the model the default agents use
+ollama list                 # verify the server responds and the model is present
+```
+
+> **No local GPU?** `gpt-oss:120b` needs a GPU-backed Ollama server, but you don't have to use
+> it — the agents are provider-agnostic, so this is an easy swap. Point the generation agents at
+> **any provider** — Gemini (`model='gemini-3-flash-preview'`, `model_provider='google'`),
+> ChatGPT/OpenAI (`model_provider='openai'`), Anthropic (`'claude'`), or Grok (`'grok'`) — by
+> editing `model` / `model_provider` in the `build_agents_*` factories in `HENA.py`. The
+> embeddings already run on a cloud API, so an all-cloud setup needs no GPU and no Ollama at all.
 
 
 # Preparing the Run Scripts (pre-flight)
@@ -297,15 +318,19 @@ A healthy result prints `python OK [CudaDevice(id=0)]` and `julia OK` with empty
 most common setup issue — see the path table above).
 
 
-## (Optional) Driving setup and runs with Claude Code
+## Recommended: drive setup, launch & monitoring with Claude Code
 
 This repo ships a `CLAUDE.md` that gives [Claude Code](https://claude.com/claude-code)
-(or any coding agent) full project context, so the agent can act as a **setup/launch/monitor
-convenience layer** — entirely optional. In practice it can do the fiddly, machine-specific
-parts of the pre-flight above: point the two run bridges at your env, start the Ollama
-backend for the local agents, activate your conda env, launch `run_athena.py`, tail the
-per-run logs, and surface crashes. This is the part that is otherwise manual, so an agent
-mostly helps with **operational reproducibility** (getting it running on a new machine).
+(or any coding agent) full project context. The numerical core is deterministic and works
+as-is, but **getting it running on a new machine means making several moving parts agree at
+once** — the two run bridges (`run_python.sh`, `run_julia.sh`), `DB_BASE`/`RESULTS_BASE` in
+`HENA.py`, the four Chroma DB paths/collections, the Ollama backend for the local agents, and
+the API keys in `crunch_llm/code/.env`. Any one of these silently mismatched fails deep inside
+the HENA loop, not at startup. An agent that reads `CLAUDE.md` is the fastest way through this:
+it can point the bridges at your conda env / Julia project, line up the DB and Results paths,
+start Ollama, launch `run_athena.py`, tail the per-run logs, and surface crashes in real time.
+This is the manual, machine-specific friction, so the agent is where it earns its keep —
+**operational reproducibility** (getting it running on a new machine).
 
 > **Scope:** the agent is a convenience for setup and running — **not** the experiment runner.
 > Scientific reproducibility comes from the deterministic core: the pinned
@@ -491,7 +516,17 @@ Optional flags:
 
 Each run writes:
 * generated code, data, and per-iteration reports → `Results/<FAMILY>_codes/<ProjectName>/<timestamp>/`
-* the full multi-agent transcript → `crunch_llm/code/HENA_logs/<FAMILY>/hena_<family>_<name>_<timestamp>.txt`
+* the full multi-agent transcript → `Examples_<family>/<ProblemName>_log.txt`, mirroring the
+  notebook convention: **A → `Examples_NM`**, **B → `Examples_PINNs`**, **C → `Examples_DeepONet`**.
+
+> **Family-A analytical cases.** Family A covers both numerical-validation problems
+> (`Examples_NM`) and analytical-exact ones (`Examples_analytical_exact`), so its logs default to
+> `Examples_NM`. If the problem is analytical-exact (e.g. `Viscous_Burgers_1D_Analytical`,
+> `Inviscid_Burgers_2D`, `BlackScholes_1D`, `Wave_Equation_3D_Spherical`), move the
+> resulting `<ProblemName>_log.txt` into `Examples_analytical_exact/` afterwards.
+
+(Passing an explicit `log_base=` to `run_hena` restores the old
+`crunch_llm/code/HENA_logs/<FAMILY>/hena_<family>_<name>_<timestamp>.txt` layout instead.)
 
 `APPROVED` from the advisor ends a stage; the project directory and log path are printed at the end.
 
@@ -619,20 +654,21 @@ nondeterminism.
 
 ### A Note on GPU Requirements
 
-The system is fully functional through cloud APIs and requires **no local GPU**. Historically,
-some structured-output agents defaulted to local models (e.g. `gpt-oss:120b`) with significant
-VRAM requirements; you can point any agent at a cloud provider instead — see
+The shipped defaults in `HENA.py` run most agents on the local model `gpt-oss:120b` (via an
+Ollama server with significant VRAM requirements), so the default configuration **needs a local
+GPU + Ollama**. The system is equally functional through cloud APIs, though — point any agent at
+a cloud provider and you need **no local GPU**. See
 [**Configuring the Models**](#configuring-the-models) for how to change the `model` /
-`model_provider` of any agent (for example, switching a structured agent to
+`model_provider` of any agent (for example, Gemini on `google`, ChatGPT on `openai`, or
 `grok-4-1-fast-reasoning` on `grok`).
 
 ### A Note on Auditing the Agent Interaction
 Auditing the full, multi-turn interaction between the agents (Strategist, Advisor,
 Critic, etc.) matters as much as the final solution. Every run mirrors its entire
-multi-agent transcript to `crunch_llm/code/HENA_logs/<FAMILY>/`, so the complete
-reasoning trace is preserved as a plain-text record without needing a notebook.
-The original per-problem notebooks have been retired; their captured transcripts
-are kept next to each example as `*_log.txt`.
+multi-agent transcript to `Examples_<family>/<ProblemName>_log.txt` (A → `Examples_NM`,
+B → `Examples_PINNs`, C → `Examples_DeepONet`), so the complete reasoning trace is preserved as a
+plain-text record without needing a notebook — kept right next to each example, exactly where the
+retired per-problem notebooks used to store their captured transcripts.
 
 ### Citation
 
@@ -644,5 +680,35 @@ If you use ATHENA in your research or find this framework helpful, please cite o
   author={Toscano, Juan Diego and Chen, Daniel T and Karniadakis, George Em},
   journal={arXiv preprint arXiv:2512.03476},
   year={2025}
+}
+```
+
+**Please also cite the libraries ATHENA builds on.** The physics-informed / operator-learning
+(families **B** and **C**) path uses **NABLA-SciML** (the variational residual-based-adaptivity
+framework where vRBA / SSBroyden was introduced), and the numerical-methods (family **A**) path
+runs its solvers in **Julia**:
+
+```bibtex
+@article{toscano2025variational,
+  title={A variational framework for residual-based adaptivity in neural PDE solvers and operator learning},
+  author={Toscano, Juan Diego and Chen, Daniel T and Ooomen, Vivek and Darbon, J{\'e}r{\^o}me and Karniadakis, George Em},
+  journal={npj Artificial Intelligence},
+  volume={2},
+  number={1},
+  pages={32},
+  year={2026},
+  publisher={Nature Publishing Group UK London}
+}
+
+@article{bezanson2017julia,
+  title={Julia: A fresh approach to numerical computing},
+  author={Bezanson, Jeff and Edelman, Alan and Karpinski, Stefan and Shah, Viral B},
+  journal={SIAM review},
+  volume={59},
+  number={1},
+  pages={65--98},
+  year={2017},
+  publisher={SIAM},
+  url={https://doi.org/10.1137/141000671}
 }
 ```
