@@ -410,8 +410,10 @@ As per your system instructions:
         recommendation = json_response.get("recommendations_for_planner", "Parser failed to extract 'recommendations_for_planner'.")
         
         is_approved = (status.upper() == "APPROVED")
-        error_report = f"Advisor Analysis:\n{analysis}\n\nRecommendation:\n{recommendation}"
-            
+        # Pass the FULL markdown report (which includes the Quantitative Scorecard)
+        # so the register agent can extract the per-component scores, like family B.
+        error_report = f"Advisor Analysis:\n{markdown_report}"
+
     else:
         # --- PATH B: 'summary_all.png' was NOT FOUND ---
         # This is a planned failure, not a crash.
@@ -893,7 +895,7 @@ You MUST follow this exact, sequential triage:
 
 4.  **Confirm with [STDOUT LOG]:**
     * **ONLY** if the plots are readable (you passed Step 3), you will now read the log text.
-    * Find the **VERY LAST** "Minimum achieved **test** error:". This is the **Final Error**.
+    * Find the **VERY LAST** line reporting the **test** error — typically `Final average Relative L2 error for the functions on the testing dataset <value>` (use the **testing**, not the training, number). This is the **Final Error**.
 
 5.  **Apply the Rubric:**
     * Based on the **Final Error**, determine the **Quantitative_Status**:
@@ -911,6 +913,55 @@ You MUST follow this exact, sequential triage:
         * Go to and select `### PATH C: ESCALATION MODE`.
     * **If `Quantitative_Status` is `SUCCESS` ($\le 5\%$):**
         * Go to and select `### PATH A: REFINEMENT MODE`.
+
+8.  **SCORING RUBRIC (Total: 100 Points | Passing: 90 Points):**
+    You MUST score **every** run on these four axes, regardless of which Path you select. The axes are tailored to **data-driven operator learning (DeepONets)**: the model is trained on input/output *function pairs* and is judged by how well it **generalizes to a held-out TEST set** — NOT by a PDE residual.
+
+    **SCORE ONLY FROM THE EVIDENCE YOU ARE GIVEN.** Your only inputs are: the **[USER_REQUEST]**; the **[STRATEGIST_REPORT]** (which *states* the architecture, branch/trunk, basis, learning rates, loss, and normalization that were used); the **[TRIAL_HISTORY_LOG]**; the **[SUMMARY PLOT]**; and the **[STDOUT LOG (TAIL)]**. **You do NOT have the source code — never score or penalize anything you cannot actually see in these inputs.** Concretely, the evidence is:
+    * **[SUMMARY PLOT]** is a 3x3 grid: **row 1** = three histories vs iterations (`Total Loss`, `Train Relative Error (Mean)`, `Test Relative Error (Mean)`); **rows 2-3** = `Prediction` / `Reference` / `Pointwise Error` heatmaps for the two worst test samples.
+    * **[STDOUT LOG (TAIL)]** reports the final numbers, e.g. `Final average Relative L2 error for the functions on the training dataset <X>` and `... on the testing dataset <Y>`, plus the worst-sample errors. It also shows the train/test split shapes (`s_train`/`f_train` vs `s_test`/`f_test`).
+
+**1. Integrity & Stability (0-35 Points)** — *judged from the [STDOUT LOG] and [SUMMARY PLOT].*
+* **Criteria:** Did the run finish and produce finite, readable results?
+* **Scoring Guide:**
+    * **35:** Log shows training completed (e.g. `Training finished`) with finite final errors; the summary plot rendered with all 9 panels readable.
+    * **25-30:** Finishes but with minor issues (an off-scale axis, one hard-to-read panel).
+    * **0-10:** CRITICAL FAILURE (Automatic Rejection). The log shows a crash / `NaN` / `Inf`, OR the **`Test Relative Error` history visibly DIVERGES** (climbs sharply in the final segment), OR `summary_all.png` is missing/blank.
+
+**2. Accuracy & Generalization (0-35 Points)** — *judged from the [STDOUT LOG] error lines and the row-1 history panels.*
+* **Criteria:** Out-of-sample operator accuracy. It is the sum of **Test Precision (0-20)** and **Generalization & Consistency (0-15)**.
+
+    **A. Test Precision (0-20 Points)**
+        * Use the final **TEST** Relative-L2 error: the log line `Final average Relative L2 error for the functions on the testing dataset`, cross-checked against the `Test Relative Error` panel. Let $\epsilon_target = 5\times10^{-2}$ unless the user requested something tighter.
+        * **20:** Test Rel-L2 $\le \epsilon_target$
+        * **10-15:** Test Rel-L2 $\le 10\times\epsilon_target$ (within one order of magnitude)
+        * **0-5:** Test Rel-L2 $> 10\times\epsilon_target$
+
+    **B. Generalization & Consistency (0-15 Points)**
+        * **Generalization Gap:** Compare the two reported numbers — `...training dataset` vs `...testing dataset` (and the `Train` vs `Test Relative Error` panels).
+            * Comparable (test $\lesssim 3\times$ train) $\rightarrow$ healthy.
+            * Test $\gg$ train (overfitting, e.g. test $> 10\times$ train) $\rightarrow$ deduct heavily.
+        * **Held-out Evaluation:** The log must report a TEST error on a **separate test split** (e.g. `s_test`/`f_test` distinct from `s_train`/`f_train`). If only a training error is reported, generalization is unproven $\rightarrow$ deduct heavily.
+        * **Operator Consistency:** Does the run solve the operator in the [USER_REQUEST] — correct domain, boundary conditions (e.g. periodicity), and physical parameter (e.g. $\nu$) — as described in the [STRATEGIST_REPORT]? Deduct for any mismatch.
+
+**3. Fine-Grained Details (0-15 Points)** — *judged from the [SUMMARY PLOT].*
+* **Convergence (Plateau Rule):** Look at the **last half** of the `Test Relative Error` history. It must be a genuinely **FLAT band** (`Convergence_Status = FLAT`). A curve still **DECREASING on average** across the last half is a premature stop (budget-limited), NOT converged.
+* **Pointwise Error Structure:** The `Pointwise Error` heatmaps must be readable (not a single saturated color) and the error spatially reasonable.
+* **Scoring Guide:**
+    * **15:** Test-error curve flat in the final half; pointwise-error heatmaps readable and well-resolved; all panels present.
+    * **8-12:** Minor drift, or one off-scale / saturated panel.
+    * **0-7:** Still descending at the right edge (premature stop), OR a saturated/unreadable error heatmap, OR missing panels.
+
+**4. Methodological Optimality (DeepONet-Specific) (0-15 Points)** — *judged from the [STRATEGIST_REPORT], [TRIAL_HISTORY_LOG], and plot symptoms — NOT from source code.* (Leniency Rule: if Accuracy $\ge 30$, be lenient here.)
+* Judge whether the architecture and training set-up **as described in the [STRATEGIST_REPORT]** are appropriate:
+    * **Architecture / Basis Match:** Branch (MLP / eMLP / CNN) and Trunk (MLP / KAN / KKAN) suited to the problem; **Periodic Fourier Features** for periodic BCs; basis (Chebyshev / RBF / Fourier / Wavelet) matched to the error structure visible in the `Pointwise Error` heatmaps (see the PATH C diagnostic).
+    * **Methodology Level:** Appropriate position on the **Standard $\rightarrow$ QR $\rightarrow$ SVD-DeepONet** ladder given the [TRIAL_HISTORY_LOG] (don't over-escalate on an easy problem; don't linger on a failing baseline).
+    * **Training Set-up:** MSE (or Relative-L2) loss as appropriate; for KAN/KKAN trunks the **trunk LR reduced** (~ branch_LR / 3), as stated in the report.
+    * **Stability Symptom:** If the `Test Relative Error` history **diverged** or shows a large train/test shift, that points to a **normalization** problem — your *recommendation* should be to confirm inputs/outputs are normalized with **global (whole-training-set) statistics rather than per-batch**. (This is a recommendation inferred from the symptom, NOT a code audit — do not claim to have read the code.)
+* **Scoring Guide:**
+    * **15:** Report describes a problem-matched architecture/basis at an appropriate methodology level with a sound training set-up.
+    * **8-14:** Reasonable but sub-optimal (e.g. default basis on a periodic problem, or a heavier methodology than needed).
+    * **0-7:** Clear architecture/problem mismatch, OR a divergence symptom left undiagnosed.
 
 ---
 ### **PATH A: REFINEMENT MODE (Provisional Success)**
@@ -1016,13 +1067,48 @@ This is a **Strategist-level** recommendation. Based on your **Current Strategy 
     * Cure: "The QR decomposition may be the issue. **Analyze the `[TRIAL_HISTORY_LOG]` and find the *best* QR-DeepONet run** (MLP or KKAN). Recommend **escalating by re-running that specific strategy** but **changing the decomposition from QR to SVD**."
 
 12. **If `SVD-DeepONet (Best)` just failed:**
-    * **THIS IS THE ESCAPE HATCH (REFINEMENT MODE).** The escalation ladder is exhausted.
-    * **New Status:** `REJECTED_FOR_REFINEMENT`
-    * **New Analysis:** "All 12 strategies in the escalation ladder have been exhausted. The [STRATEGIST_REPORT] confirms the final 'SVD-DeepONet' strategy has failed. **We must now switch to refinement mode and revert to the best-performing model from history.**"
-    * **New Recommendation:**
-        * "1. **(To Strategist):** Analyze the `[TRIAL_HISTORY_LOG]` and find the run/strategy with the **lowest historical test error**. (e.g., 'Run 7: KAN w/ Sin Basis' at 6.1% error)."
-        * "2. **(To Strategist):** Recommend the Strategist to **re-run this best-performing strategy**."
-        * "3. **(To Planner):** Instruct the **Planner** to **refine this model further** by **doubling the iterations**."
+    * **THIS IS THE ESCAPE HATCH (REFINEMENT MODE).** The escalation ladder is exhausted — no methodology in the ladder beat the best historical model.
+    * **Step 1 — Find the best historical model:** From the `[TRIAL_HISTORY_LOG]`, identify the run with the **lowest historical test error** (e.g., 'Run 13: QR-DeepONet (KKAN/eMLP) / Fourier' at 5.70%). Call it **Run X**.
+    * **Step 2 — Decide whether more training can help, based on whether Run X had PLATEAUED or was still DECREASING.**
+      ⚠️ **CRITICAL — this framework cannot warm-start.** It can only *rewrite the code and retrain from scratch*; it cannot resume Run X's trained weights. Therefore **adding iterations only helps a model that was still DECREASING when it stopped (it ran out of training budget). It does NOT help a model that already PLATEAUED** — retraining a converged architecture from scratch with more steps simply re-plateaus at the same accuracy floor. Read Run X's convergence from its **Details score** and the description of its `Test L2 Error` history in the `[TRIAL_HISTORY_LOG]`:
+
+      * **CASE A — Run X had PLATEAUED (its `Test L2 Error` curve was FLAT in the last half / it scored high on Details):**
+        * The best architecture has reached its **accuracy floor**. More iterations are futile (no warm-start; a from-scratch retrain just re-plateaus), and the 5% target is **not achievable** with the available methods. **The system is allowed to STOP here even though no architecture reached the optimal target** — when the entire escalation ladder has been tried and none converged below the target, the correct action is to terminate on the best model found, not to keep looping.
+        * **New Status:** `APPROVED`
+        * **New Analysis:** "The escalation ladder is fully exhausted; **no optimal structure was found** — no methodology in the ladder converged below the target, and none beat **Run X (<strategy>, <error>)**. Run X's `Test L2 Error` curve is FLAT in its final half — it has **converged to this architecture's accuracy floor**. Because this framework cannot warm-start (it can only retrain from scratch), additional iterations cannot lower a curve that is already flat. We therefore **STOP and ACCEPT Run X as the best achievable result** rather than waste a futile retrain."
+        * **New Recommendation:** "**STOP.** Accept **Run X** as the final model. No optimal structure was found below the target, but the search space (the full escalation ladder) has been exhausted and Run X has converged, so further searching or training is not warranted. **Do NOT increase iterations** — the best architecture has already plateaued."
+
+      * **CASE B — Run X was still DECREASING (its `Test L2 Error` curve had NOT flattened — it was budget-limited):**
+        * More training budget is genuinely warranted, because the curve had not yet converged.
+        * **New Status:** `REJECTED_FOR_REFINEMENT`
+        * **New Recommendation:**
+            * "1. **(To Strategist):** Re-run the best-performing strategy, **Run X**."
+            * "2. **(To Planner):** **DOUBLE the iterations** for the final stage — Run X had not yet plateaued, so additional training budget should push the error lower."
+
+---
+### **MANDATORY OUTPUT FORMAT (applies to EVERY path)**
+
+The PATH A / B / C examples above show only `## Status`, `## Analysis`, and `## Recommendation`. Regardless of which path you selected, your final report **MUST** contain these **four** sections, in this exact order:
+
+```
+## Status
+[APPROVED / REJECTED_FOR_REFINEMENT / REJECTED_FATAL]
+
+## Quantitative Scorecard
+* Score Integrity: [0-35]
+* Score Accuracy: [0-35]
+* Score Details: [0-15]
+* Score Optimality: [0-15]
+* TOTAL SCORE: [sum of the above]
+
+## Analysis
+[your path-specific analysis]
+
+## Recommendation
+[your path-specific recommendation]
+```
+
+You must **ALWAYS insert the `## Quantitative Scorecard` block** (computed from the SCORING RUBRIC in Task Step 8) between `## Status` and `## Analysis`. Score every run even when the status is `APPROVED` (a passing run should score $\ge 90$) or a `REJECTED_FATAL` crash (Integrity in the 0-10 band). The four sub-scores must sum to the TOTAL.
 """
 
 advisor_parser_system_prompt_ON = """
@@ -1091,10 +1177,23 @@ You are a simple parsing and registration agent. Your only job is to convert two
 **JSON OUTPUT KEYS:**
 1.  `"summary"`: A rich summary of the architecture, components, basis, LRs, loss, and normalization.
 2.  `"testing_error"`: The final testing error from the advisor's analysis.
-3.  `"change_architecture"`: A boolean (`true`/`false`) gate.
+3.  `"score_integrity"`: Integer (0-35).
+4.  `"score_accuracy"`: Integer (0-35).
+5.  `"score_details"`: Integer (0-15).
+6.  `"score_optimality"`: Integer (0-15).
+7.  `"change_architecture"`: A boolean (`true`/`false`) gate.
 
 ---
 **LOGIC FOR JSON KEYS:**
+
+**0. Scores (Integers):**
+* **Source:** [ADVISOR_REPORT] -> **## Quantitative Scorecard**
+* **Task:** Extract the integer values directly from the scorecard lines.
+    * `score_integrity`: from "Score Integrity" (Max 35)
+    * `score_accuracy`: from "Score Accuracy" (Max 35)
+    * `score_details`: from "Score Details" (Max 15)
+    * `score_optimality`: from "Score Optimality" (Max 15)
+* **If the scorecard is absent** (e.g. a Cosmetic-Failure report with no plot), set all four to `0`.
 
 **1. "summary" (string):**
 * **Task:** Your goal is to create a "best-effort" summary. The examples below are your best guide for the final format.
@@ -1145,6 +1244,12 @@ Strategy 1: Baseline DeepONet (MLP)
 **[ADVISOR_REPORT] (Input):**
 ## Status
 REJECTED_FOR_REFINEMENT
+## Quantitative Scorecard
+* Score Integrity: 35
+* Score Accuracy: 12
+* Score Details: 8
+* Score Optimality: 9
+* TOTAL SCORE: 64
 ## Analysis
 The Final Test Error is 0.15 (15%), which is above the 5% threshold...
 ## Recommendation
@@ -1155,6 +1260,10 @@ This is a Strategist-level recommendation... escalate to a **KAN with RBF basis 
 {{
   "summary": "Str 1: MLP / Periodic Features / LR: 2e-3 / Act: tanh / Norm: [-1,1] / Loss: MSE",
   "testing_error": "0.15",
+  "score_integrity": 35,
+  "score_accuracy": 12,
+  "score_details": 8,
+  "score_optimality": 9,
   "change_architecture": false
 }}
 ```
@@ -1180,6 +1289,12 @@ Strategy 3: Standard DeepONet + KKAN Trunk / eMLP Branch
 **[ADVISOR_REPORT] (Input):**
 ## Status
 REJECTED_CATASTROPHIC_FAILURE
+## Quantitative Scorecard
+* Score Integrity: 10
+* Score Accuracy: 3
+* Score Details: 2
+* Score Optimality: 5
+* TOTAL SCORE: 20
 ## Analysis
 This is a catastrophic scientific failure... Final Test Error is high (e.g., 2.5e+1)...
 ## Recommendation
@@ -1190,6 +1305,10 @@ This is a catastrophic scientific failure... Final Test Error is high (e.g., 2.5
 {{
   "summary": "Str 3: eMLP Branch / KKAN Trunk / LRs: 2e-3, 6.66e-4 / Act: relu / Norm: [0,1] / Loss: MSE",
   "testing_error": "2.5e+1",
+  "score_integrity": 10,
+  "score_accuracy": 3,
+  "score_details": 2,
+  "score_optimality": 5,
   "change_architecture": true
 }}
 ```
@@ -1215,6 +1334,12 @@ Strategy 4: QR-DeepONet (MLP)
 **[ADVISOR_REPORT] (Input):**
 ## Status
 APPROVED
+## Quantitative Scorecard
+* Score Integrity: 35
+* Score Accuracy: 33
+* Score Details: 14
+* Score Optimality: 14
+* TOTAL SCORE: 96
 ## Analysis
 ...confirmed by the Final Test Error of 2.1e-3 from the log...
 ## Recommendation
@@ -1225,6 +1350,10 @@ None
 {{
   "summary": "Str 4: QR-DeepONet (MLP) / LR: 2e-3 / Act: tanh / Norm: [-1,1] / Loss: MSE",
   "testing_error": "2.1e-3",
+  "score_integrity": 35,
+  "score_accuracy": 33,
+  "score_details": 14,
+  "score_optimality": 14,
   "change_architecture": false
 }}
 ```

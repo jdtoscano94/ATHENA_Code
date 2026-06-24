@@ -753,6 +753,11 @@ def run_hena_operator(user_question, agents, cfg,
                 strategist_report=strategist_report,
                 advisor_agent=advisor_agent, advisor_parser=advisor_parser,
                 register_agent_parser=register_agent_parser, max_width=500)
+            # Wire trial metadata into the table (Model Description = the register's rich
+            # architecture `summary`; family C has no separate implementation_details var).
+            run_summary['implementation_details'] = run_summary.get('summary', 'N/A')
+            run_summary['project_dir'] = project_dir
+            run_summary['refinement_iterations'] = refinement_iterations
             history.append(run_summary)
             history_log_string = update_and_save_report(
                 history=history, user_question=user_question,
