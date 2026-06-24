@@ -789,3 +789,35 @@ runs its solvers in **Julia**:
   url={https://doi.org/10.1137/141000671}
 }
 ```
+
+## A Note on Model Availability (deprecated model IDs)
+
+The example notebooks and the `build_agents_*` factories in `HENA.py` pin the **exact
+LLM versions used to produce the paper's results** (e.g. `gemini-3-pro-preview`,
+`gpt-5.1`, `claude-sonnet-4-5`, `grok-4-1-fast-reasoning`, with `gpt-oss:120b` and
+Google `text-embedding-004` for retrieval). These pins are deliberate — they are the
+provenance record of which models generated each figure.
+
+However, **LLM providers periodically retire model IDs**, especially *preview*
+versions. A retired model surfaces as a run-time error such as:
+
+```
+NOT_FOUND: 404 ... This model models/gemini-3-pro-preview is no longer available.
+Please update your code to use a newer model ...
+```
+
+If you hit an error like this (`NOT_FOUND` / `model not found` / `404` / `model is no
+longer available`), the model ID simply needs to be **swapped for a current
+equivalent from the same provider**. Edit the `model=` argument wherever that agent is
+constructed:
+
+* **In a notebook** — the agent-setup cell (Strategy / Retrieval / Advisor teams).
+* **For `run_athena.py`** — the matching `build_agents_*` factory in
+  `crunch_llm/code/HENA.py`.
+
+For example, replace a retired `model='gemini-3-pro-preview'` with the latest
+available Gemini (e.g. `model='gemini-2.5-pro'`, or whichever is current). The agents
+are provider-agnostic, so only the `model` / `model_provider` strings change — see
+[**Configuring the Models**](#configuring-the-models). Swapping a model may slightly
+change the generated solution (different models reason differently), but the HENA loop
+and the framework behave identically.

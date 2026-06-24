@@ -733,6 +733,129 @@ class aRAGAgent_multimodal:
 
 
 # ============================================================================
+# SINGLE-CHUNK RAG AGENT CLASS (memory + RAG, text-only)
+# ============================================================================
+class aRAGAgent_single_chunk:
+    """Text-only RAG agent that retrieves code chunks from a Chroma collection
+    to ground its responses. Used as the operator-learning (family C) strategist,
+    which retrieves module/architecture examples to seed its proposals.
+
+    Migrated from the legacy create_tool_calling_agent/AgentExecutor API to the
+    langgraph `create_agent` API, mirroring aRAGAgent_multimodal's text-only path.
+    The retrieval tool returns code content only (no metadata) — the original
+    "single chunk" behavior.
+    """
+    def __init__(self,
+                 db_path: str,
+                 model: str,
+                 embeddings_model: str = 'bge-m3:567m',
+                 model_provider: str = 'ollama',
+                 embeddings_provider: str = 'ollama',
+                 collection_name='documents',
+                 system_prompt="You are a powerful AI assistant...",
+                 temperature=0,
+                 verbose=False,
+                 k=5):
+
+        # Store config for later use
+        self.system_prompt = system_prompt
+        self.verbose = verbose
+        self.k = k
+
+        # --- 1. Initialize Embeddings Model ---
+        embeddings = None
+        if embeddings_provider.lower() == 'ollama':
+            embeddings = OllamaEmbeddings(model=embeddings_model)
+        elif embeddings_provider.lower() == 'google':
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in environment.")
+            embeddings = GoogleGenerativeAIEmbeddings(model=embeddings_model)
+        elif embeddings_provider.lower() == 'openai':
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found in environment.")
+            embeddings = OpenAIEmbeddings(model=embeddings_model)
+        else:
+            raise ValueError(f"Unknown embeddings_provider: '{embeddings_provider}'.")
+
+        # --- 2. Initialize ChromaDB ---
+        client = chromadb.PersistentClient(path=db_path)
+        vector_store = Chroma(
+            client=client,
+            collection_name=collection_name,
+            embedding_function=embeddings
+        )
+        self.vector_store = vector_store
+
+        # --- 3. Retrieval Tool (returns code content only) ---
+        @tool
+        def retrieve(query: str) -> str:
+            """Retrieve implementation code from the local code database."""
+            if self.verbose:
+                print(f"--- Retrieving documents for query: '{query}' ---")
+            retrieved_docs = self.vector_store.similarity_search(query, k=self.k)
+            if not retrieved_docs:
+                return "No relevant documents found in the database."
+            code_blocks = [doc.page_content for doc in retrieved_docs]
+            return "\n\n---\n\n".join(code_blocks)
+
+        self.retrieve_tool = retrieve
+
+        # --- 4. Initialize Main LLM ---
+        llm = None
+        provider = model_provider.lower()
+        if provider == 'ollama':
+            llm = ChatOllama(model=model, temperature=temperature)
+        elif provider == 'google':
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in environment.")
+            llm = ChatGoogleGenerativeAI(model=model, temperature=temperature)
+        elif provider == 'openai':
+            if "OPENAI_API_KEY" not in os.environ:
+                raise ValueError("OPENAI_API_KEY not found in environment.")
+            llm = ChatOpenAI(model=model, temperature=temperature)
+        elif provider in ['claude', 'anthropic']:
+            if "ANTHROPIC_API_KEY" not in os.environ:
+                raise ValueError("ANTHROPIC_API_KEY not found in environment.")
+            llm = ChatAnthropic(model=model, temperature=temperature)
+        elif provider in ['grok', 'xai']:
+            if "XAI_API_KEY" not in os.environ:
+                raise ValueError("XAI_API_KEY not found in environment.")
+            llm = ChatXAI(model=model, temperature=temperature, timeout=60, max_retries=2)
+        else:
+            raise ValueError(f"Unknown model_provider: '{model_provider}'.")
+        self.llm = llm
+
+        # --- 5. Create Agent (text-only, tool-calling) ---
+        self.agent = create_agent(
+            model=llm,
+            tools=[retrieve],
+            system_prompt=system_prompt,
+            debug=verbose
+        )
+
+        # Initialize state
+        self.state = {"messages": []}
+
+    def run(self, user_question: str) -> dict:
+        """Runs a single text-only RAG turn."""
+        self.state["messages"].append(HumanMessage(content=user_question))
+        result = self.agent.invoke(self.state)
+        self.state = result
+        ai_message = extract_message_content(result["messages"][-1].content)
+        return {"input": user_question, "output": ai_message}
+
+    def clear_history(self):
+        """Clear the conversation history."""
+        self.state = {"messages": []}
+        if self.verbose:
+            print("Chat history cleared.")
+
+    def get_history(self) -> list:
+        """Get the current conversation history."""
+        return self.state["messages"].copy()
+
+
+# ============================================================================
 # MULTIMODAL AGENT CLASS (memory + vision, no RAG)
 # ============================================================================
 class Multimodal_agent:
