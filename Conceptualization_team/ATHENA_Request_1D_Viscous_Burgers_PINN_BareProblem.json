@@ -1,0 +1,12 @@
+{
+    "problem_name": "1D_Viscous_Burgers_PINN_BareProblem",
+    "pipeline": [
+        {
+            "stage": 1,
+            "path": "B",
+            "task": "PINN setup, training, and evaluation (SciML-PINN)."
+        }
+    ],
+    "description": "Single-stage PINN solution of the 1D viscous Burgers equation, stated as the bare physics problem with no method prescriptions (no periodic feature embedding, no k=2, no loss-handling instructions). Same physics as Burgers_100pi.ipynb; the agent chooses how to solve it.",
+    "user_request": "Lets solve the viscous Burgers equation u_t + u u_x = nu u_{xx} with IC = -sin(pi x), the domain goes from 0 to 1 in time and from -1 to 1 in x; periodic boundary conditions.\n\nHere $nu = 1/(100*pi)$.\n\n### Reference Data:\nYou can find the data here:\n/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/codes/Data/burgers.mat\nThe solutions are saved as a dictionary with keys 't', 'x' and 'usol'."
+}

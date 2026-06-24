@@ -446,7 +446,7 @@ This script initiates a conversational agent that will guide you through definin
 * **Process:** A *Coordinator* agent interviews you about the physics, constraints, and objectives, proposes a hybrid strategy (e.g. *infer with a PINN, then verify numerically*), and writes a formal specification. A *Gatekeeper* agent then routes that specification into an ordered execution pipeline.
 * **Output:** A **JSON file** `ATHENA_Request_<problem_name>.json`, containing the standardized `problem_name`, an ordered `pipeline` of stages (each tagged `A` = SciC, `B` = PINN, `C` = Operator), a `description`, and the full formalized spec under `user_request`.
 * **Transcript:** The whole conversation is mirrored to `Conceptualization_team/Formalization_logs/formalization_<timestamp>.txt` for auditing.
-* **Usage:** This JSON is formatted and ready to be fed directly into the evaluation notebooks.
+* **Usage:** This JSON is formatted and ready to be fed directly into `run_athena.py` (Step 3, autonomous mode).
 
 **Non-interactive (batch) mode.** If you already have a complete problem description in a text file, you can skip the chat and generate the JSON in one shot:
 
@@ -471,15 +471,25 @@ In short: the Conceptualization Team *produces* this specification, but if you c
 
 ## Step 3 — Evaluation
 
-Examples are driven from their request JSONs via `run_athena.py`, which dispatches
-each pipeline stage to the HENA loop:
+There are **two ways to run a problem**, suited to different situations:
 
-```bash
-python run_athena.py Conceptualization_team/ATHENA_Request_Rayleigh_Taylor_2D_Euler.json
-```
+* **Autonomous mode — `run_athena.py`.** Reads a request JSON and runs every
+  pipeline stage end-to-end through the HENA loop, hands-off. This is the path for a
+  **new problem**: first let the **Conceptualization Team** frame it properly
+  (`Formalize.py`, Step 2) into a request JSON — highly encouraged, since it scopes
+  the physics, picks the family (A/B/C), and writes a clean request — then run it.
 
-(The original per-problem notebooks have been retired; their extracted run
-transcripts are kept alongside each example as `*_log.txt`.)
+  ```bash
+  python run_athena.py Conceptualization_team/ATHENA_Request_Rayleigh_Taylor_2D_Euler.json
+  ```
+
+* **Interactive mode — the example notebooks.** When you **already understand the
+  problem** and don't need the Conceptualization Team to contextualize it, it is
+  easier to run the per-problem notebook in `Examples_<family>/` directly. Each runs
+  **only the HENA loop**, seeded with your `user_question`, and is the preferred path
+  for human-in-the-loop work and checkpoint-driven runs. See
+  [**Interactive mode (the example notebooks)**](#interactive-mode-running-the-hena-loop-directly-the-example-notebooks)
+  below.
 
 ### Reference data
 
@@ -603,6 +613,73 @@ straight `python run_athena.py …ATHENA_Request_1D_Viscous_Burgers_PINN.json`
 runs all three; if you want the PINN stages to read the exact Stage-1 reference
 file, run `--stage 1` first and point the PINN stages at its `Results/` output.
 
+### Interactive mode: running the HENA loop directly (the example notebooks)
+
+Every example also ships as a self-contained notebook in its `Examples_<family>/`
+folder (e.g. `Examples_PINNs/Poisson.ipynb`, `Examples_NM/Cahn-Hilliard_Equation.ipynb`).
+Unlike `run_athena.py`, a notebook runs **only the HENA loop** — it skips the
+Conceptualization Team and is seeded directly with a `user_question`. The whole
+notebook is just a handful of cells: imports → paths → agent setup →
+`user_question` → run the loop → (optional) refinement.
+
+**When to use this instead of `run_athena.py`.** For a **new problem**, prefer the
+autonomous path and let the Conceptualization Team frame it first — this is highly
+encouraged, as it scopes the physics and routes the problem properly. But when you
+**already understand the problem** and don't need it contextualized, editing a
+notebook's `user_question` and running the loop directly is faster and gives a
+cell-by-cell view of the run.
+
+**Human-in-the-loop demos.** A few cases are kept specifically because they benefit
+from a human in the loop, and the notebooks make that hand-off explicit:
+
+* **Multi-step orchestration (PINN → numerical) — two notebooks.** The inverse
+  lid-driven-cavity case is split across a PINN notebook and a numerical notebook,
+  in the order the agents themselves prescribe:
+  1. `Examples_PINNs/Lid_driven_500_inverse.ipynb` — the inverse PINN infers the
+     Reynolds number (`Re ≈ 525`) and the hidden velocity field from sparse, noisy
+     data, and saves `results.npz`.
+  2. `Examples_NM/Validation_NS.ipynb` — a high-fidelity numerical solve at the
+     inferred `Re` verifies the physics against the true `Re = 500`. You carry
+     Step 1's output forward by setting `PINN_parameter` (the inferred `Re`) and
+     `path_data` to Step 1's `results.npz`.
+
+* **Failure + a one-sentence human hint.** When the autonomous run stalls, a single
+  sentence in the request rescues it (the agents interpret and integrate the hint):
+  * `Examples_analytical_exact/VB1D.ipynb` (Viscous Burgers) — the agents find the
+    Cole–Hopf transformation but the integral fails under standard quadrature; the
+    request carries the hint *"use Gauss–Hermite quadrature,"* which resolves it to
+    machine precision.
+  * `Examples_PINNs/Inviscid_burgers_Human_Wavelet.ipynb` (Inviscid Burgers) —
+    periodic Fourier embeddings oscillate near the shock; a hint to use periodic
+    wavelet embeddings with a refined viscosity schedule extends shock capturing to
+    lower viscosity.
+
+**Easy checkpointing.** The notebooks expose checkpointing as a single editable
+cell — set `checkpoint_project_dir` to a prior `Results/<run>/` folder and load it
+with `load_checkpoint_data(checkpoint_project_dir, load_code_only=...)`:
+
+* `load_code_only=True` — restart from a previously **successful script** only
+  (e.g. `Lid_driven_500_inverse.ipynb`).
+* `load_code_only=False` — restore the **full prior state**: strategy, history, and
+  error report (e.g. `Inviscid_burgers_Human_Wavelet.ipynb`, resuming a human-guided
+  run).
+
+Leave `checkpoint_project_dir=''` to start fresh.
+
+**Provenance.** Most of the paper's results were produced in this interactive
+notebook mode — including the **ablation studies** (`Examples_*/Ablation_Study/`)
+and the **regret analyses** (`Examples_NM/Regret_analysis/`,
+`Examples_analytical_exact/Regret_analysis/`, `Examples_PINNs/Regret_Analysis_HM/`).
+Each notebook pins the **exact LLM versions used for that result** in its agent-setup
+cell (e.g. `gemini-3-pro-preview`, `gpt-5.1`, `claude-sonnet-4-5`,
+`grok-4-1-fast-reasoning`, with `gpt-oss:120b` and Google `text-embedding-004` for
+retrieval), so each figure can be traced to the specific models that generated it.
+
+> The notebooks ship with the authors' absolute paths (the `my_database_path…`,
+> `base_results_dir`, and `checkpoint_project_dir` cells point at
+> `/users/jdtoscan/.../Crunch_LLM/...`). Edit those to your own vector-DB and
+> `Results/` locations before running.
+
 ### Resuming from a checkpoint
 
 Any run can be resumed from a prior `Results/` folder via `run_hena` (which
@@ -667,8 +744,8 @@ Auditing the full, multi-turn interaction between the agents (Strategist, Adviso
 Critic, etc.) matters as much as the final solution. Every run mirrors its entire
 multi-agent transcript to `Examples_<family>/<ProblemName>_log.txt` (A → `Examples_NM`,
 B → `Examples_PINNs`, C → `Examples_DeepONet`), so the complete reasoning trace is preserved as a
-plain-text record without needing a notebook — kept right next to each example, exactly where the
-retired per-problem notebooks used to store their captured transcripts.
+plain-text record kept right next to each example notebook — the same place the notebooks
+themselves store their captured transcripts.
 
 ### Citation
 
