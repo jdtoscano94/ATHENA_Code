@@ -1019,6 +1019,16 @@ This strategy has failed. We must escalate to the next step in the hierarchy.")
 ## Recommendation
 This is a **Strategist-level** recommendation. Based on your **Current Strategy State**, find the matching "If..." condition and provide the *next* step as the recommendation. **You must follow this exact 12-step hierarchy:**
 
+> **⚠️ STEP 0 — GLOBAL TERMINATION CHECK (evaluate this FIRST, before any rung below).**
+> Before selecting an escalation step, check whether the search is **already exhausted**. **ALL THREE** of the following must hold:
+>   - **(a) Top rung reached:** the `[TRIAL_HISTORY_LOG]` shows an **SVD-DeepONet** has already been attempted at least once — **whether it trained-but-missed OR crashed / scored 0**. A crashed SVD (a `0`-score row whose Model Description says SVD) still counts: *the top of the ladder has been reached.*
+>   - **(b) Best has converged:** the best historical run (lowest test error — call it **Run X**) has a **FLAT** `Test L2 Error` curve in its final half / a high **Details** score — it has reached its accuracy floor.
+>   - **(c) Refinements have stopped helping:** the last **2–3** scored runs are all within a narrow band of Run X's error (≈ within 0.5 percentage points) and **none materially beat it** — recent basis / loss / decomposition swaps are no longer lowering the error.
+>
+> **If ALL THREE hold → the ladder is exhausted and the best has converged → STOP.** Emit the **CASE A** output of Step 12 below: `## Status: APPROVED`, accept **Run X**, *"the escalation ladder is exhausted; no optimal structure was found below the target … STOP and ACCEPT Run X as the best achievable result … Do NOT increase iterations."* **Do this regardless of which rung was the most recent run** — you do **NOT** need SVD to be the *current* run; you only need it to have been **reached at some point** (even via a crash) and the best to have plateaued. Only if **not all three** hold do you proceed to the per-rung hierarchy below.
+
+> **⚠️ NO-REPEAT RULE (applies to every recommendation below).** Before you recommend the next configuration, **scan the entire `[TRIAL_HISTORY_LOG]` Model Description column.** You may **NEVER** recommend a configuration (methodology + branch/trunk + **basis** + loss + normalization) that **already appears** as a row in the history — re-running an identical config wastes an iteration and is a known failure mode (e.g., the same `QR-DeepONet (KKAN/eMLP) / RBF / MSE` proposed twice). When a rung says "change the basis by re-applying the Step-2 diagnostic," you **must pick a basis that is NOT already in the history for this methodology**; if the diagnostic points at an already-tried basis, choose the **next-best untried** basis from the Step-2 list (Fourier / Wavelet / RBF / Chebyshev). If **every** basis for the current methodology has already been tried, treat that methodology as exhausted and **escalate to the next rung** instead of repeating.
+
 1.  **If `Baseline DeepONet (MLP)` just failed:**
     * Cure: "Recommend **escalating** the `Baseline DeepONet (MLP)` by adding **Enhancements** (e.g., 'Periodic Fourier Features' for periodic data, 'Random Fourier Features' for non-periodic)."
 
@@ -1393,6 +1403,7 @@ Your goal is to create a Scientific Strategy Report to solve the [USER_QUESTION]
     - You **MUST** read the `Recommendation` and `Cure` string.
     - Your new strategy **MUST** be the one the Advisor recommended.
     - **Action:** Find the matching "Strategy" (e.g., `Strategy 2: Standard DeepONet + KAN Trunk`) from your `Section 6` rulebook and use it to build your report.
+    - **⚠️ NO-REPEAT CHECK (mandatory — do this before finalizing):** Scan the `[TRIAL_HISTORY_LOG]` **Model Description column** and confirm your concrete configuration (methodology + branch/trunk + **basis** + loss + normalization) does **NOT** already appear as a previous row. You may **never** re-propose an already-tried config — it wastes an iteration and is a known failure mode (e.g., the same `QR-DeepONet (KKAN/eMLP) / RBF / MSE` proposed twice). If the Advisor's recommendation would reproduce an existing row (e.g., it says "use an RBF basis" but a `… / RBF / MSE` row already exists for this methodology), select the **nearest untried variant** instead — a different basis from the rulebook (Fourier / Wavelet / RBF / Chebyshev) or a different loss — and **state in your report which already-tried config you avoided and why**.
 
 - **Path 3: First Run**
     - If no `[USER_QUESTION]` requests and no `[ADVISOR_REPORT]` exist:
@@ -1422,16 +1433,17 @@ Your goal is to create a Scientific Strategy Report to solve the [USER_QUESTION]
 - **Characteristics:** Periodic? High-frequency features (shocks)? Smooth/oscillatory? Stiff?
 
 **5. Normalization (CRITICAL: In-Graph)**
-- **CRITICAL INSTRUCTION FOR PLANNER:** All normalization MUST be differentiable and implemented *inside* the model's `apply` function (i.e., inside the Flax Module).
+- **CRITICAL INSTRUCTION FOR PLANNER:** All normalization MUST be differentiable and implemented *inside* the model's `apply` function (i.e., inside the Flax Module). **"In-graph" means the normalization is a *differentiable operation* in the computation graph — it does NOT mean the statistics are recomputed from the live batch.** The min/max are **precomputed global constants** (computed once on the full training set) that are *applied* inside `__call__`; baking in constant scalars is still fully in-graph and differentiable.
 - **Trunk (per-dimension):** The Planner must pass the `(t, x)` coordinates to the model *un-normalized*. The model itself must compute `t_min, t_max, x_min, x_max` from the training data (passed as static arguments or buffers) and perform the normalization to `[-1, 1]` or `[0, 1]` *inside* the `__call__` method before passing to feature layers (Periodic Fourier Features, KANs, etc.).
-- **Branch (global):** The Planner must pass the input function `u(x, t=0)` *un-normalized*. The model's Branch network must compute `u_min, u_max` and normalize the input *inside* the `__call__` method before the MLP.
+- **Branch (global statistics, NEVER per-sample):** The Planner must pass the input function `u(x, t=0)` *un-normalized*, and the Branch network must normalize it *inside* `__call__` using statistics that are **fixed constants of the whole training set** — one shared min and max (or mean/std) reduced over **every** sample and sensor at once, then reused identically for every input at train and test time.
+  - **Why this matters (the logic, not a recipe):** the operator must learn how the solution depends on the *amplitude and shape* of each initial condition. If instead you rescale **each IC by its own min/max**, every input is forced to span the same range, so its amplitude is erased — two ICs that differ only in scale become indistinguishable to the Branch, yet their target solutions differ. That makes the map ill-posed: the model can still fit what it has seen but cannot generalize. The tell-tale symptom is a **large train/test gap (severe overfitting)** while the training loss looks healthy. So the rule is conceptual: **normalization statistics describe the dataset, not the individual sample** — compute them once, globally, and freeze them. The same logic applies to the Trunk grid bounds.
 - **Activations (CRITICAL: Match Normalization to Activation):**
   - **Trunk:**
     - If using **KAN, KKAN, Sin, or Fourier Features**, you MUST instruct the Planner to normalize Trunk inputs `(t, x)` to **`[-1, 1]`**.
     - If using **RBF_KAN or a standard MLP with ReLU**, you MUST instruct the Planner to normalize Trunk inputs to **`[0, 1]`**.
   - **Branch:**
-    - If the Branch is an **MLP with `nn.tanh`** (or `POD`), you MUST instruct the Planner to normalize the Branch input `F` to **`[-1, 1]`**. (e.g., `2.0 * ... - 1.0`).
-    - If the Branch is an **MLP with `nn.relu`** (or `CNN`, `eMLP`), you MUST instruct the Planner to normalize the Branch input `F` to **`[0, 1]`**. (e.g., `(F - F_min) / (F_max - F_min)`).
+    - If the Branch is an **MLP with `nn.tanh`** (or `POD`), you MUST instruct the Planner to normalize the Branch input `F` to **`[-1, 1]`** — using the global dataset statistics described above, not per-sample ones.
+    - If the Branch is an **MLP with `nn.relu`** (or `CNN`, `eMLP`), you MUST instruct the Planner to normalize the Branch input `F` to **`[0, 1]`** — using the global dataset statistics described above, not per-sample ones.
   - **Your instructions in Section 6 (Architecture) MUST be consistent with this rule.**
 
 **6. Architecture**

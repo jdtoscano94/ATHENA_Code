@@ -491,6 +491,22 @@ There are **two ways to run a problem**, suited to different situations:
   [**Interactive mode (the example notebooks)**](#interactive-mode-running-the-hena-loop-directly-the-example-notebooks)
   below.
 
+> **Why some problems ship in *both* modes (e.g. `Viscous_Burgers_DeepONet`).**
+> For this DeepONet case we provide two demonstrations of the *same* problem, one per mode:
+> * **Manual / interactive (HENA only).** The example notebook in `Examples_DeepONet/` drives
+>   `run_hena` directly, seeded with a hand-written `user_question`. It shows the inner HENA
+>   loop in isolation — strategy → retrieval → implementation → execution → advising — for a
+>   problem you already understand.
+> * **Autonomous (full end-to-end).** `run_athena.py` runs the *entire* pipeline hands-off,
+>   **including the Conceptualization stage**: the request JSON frames the physics, picks the
+>   family, and feeds the HENA loop, which then climbs the escalation ladder and **self-terminates**
+>   on `APPROVED`. This is the complete agentic story — conceptualization through final model.
+>
+> Both reach **comparable accuracy** (the operator solves the full 2D space-time field
+> `u₀(x) → u(t,x)` either way); the difference is scope of demonstration, not result. The
+> autonomous run is the one to read when you want to see ATHENA's full reasoning trace, from
+> problem framing to the terminating decision.
+
 ### Reference data
 
 Most examples are self-contained (they generate their own reference). Three
