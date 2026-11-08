@@ -185,7 +185,7 @@ def code_creation_team_ON(
             print(f"  ❌ Error at {cell_id}: {e}")
             # Debug: Print the last few messages
             print(f"  📝 Last 3 messages in history:")
-            for msg in planner_agent.chat_history[-6:]:
+            for msg in getattr(planner_agent, "chat_history", [])[-6:]:
                 print(f"    - Type: {type(msg).__name__}, Content length: {len(str(msg.content))}")
             raise
 
@@ -239,7 +239,7 @@ def parse_planner_output(planner_output: str) -> Tuple[Dict[str, str], str]:
     return tasks_dict, dimensionality_note
 
 
-def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir='/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/PINN_codes/'):
+def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'Results', 'PINN_codes', '')):
     code_language=get_language_from_filename(filename)
     if requires_name:
         new_code_details = naming_agent.run('Original request:' + user_question)
@@ -717,6 +717,8 @@ Your task is to analyze these inputs and return a single JSON object with two ke
 **Part 1: Check for Unrecoverable Environment/User Errors (Highest Priority)**
 - First, analyze the **Log File** for errors that the **PlannerAgent CANNOT fix**.
 - Examples: `ModuleNotFoundError`, `ImportError`, `PermissionError`, or a conda activation failure.
+- Also unrecoverable: package or runtime incompatibilities, i.e. an error raised inside the internals of an installed package or the language runtime that no correct use of the API could avoid (e.g. Julia `UndefVarError` inside a dependency such as `VectorizationBase`, package precompilation failures, "missing from the cache" / version conflicts between installed packages, CUDA driver or library errors). Usage errors (wrong keyword, wrong boundary name, wrong argument types) are NOT in this class; they are fixable.
+- The software environment is FIXED and SHARED. Never ask the Planner to install, update, downgrade, pin or remove packages, or to change the Julia/Python version. If the only fix is to change the environment, return "STOP_UNRECOVERABLE".
 - If you find one of these, you must **STOP**. The loop cannot continue.
 - In this case, your output MUST be:
     - "status": "STOP_UNRECOVERABLE"
@@ -774,6 +776,8 @@ planner_agent_system_prompt_ON="""
 You are a **Stateful Refactoring Agent** specializing in JAX/Flax/Operator Learning. You implement the [OVERALL_STRATEGY_REPORT] from the Scientific Director.
 
 **IMPORTANT: Non-standard layer implementations are provided separately in [REFERENCE FUNCTIONS]. You do NOT need to use any retrieve tool. However, you MUST adapt this code to match the specific problem dimensions and requirements.**
+
+**NEVER MODIFY THE ENVIRONMENT:** Never add code that installs, updates, downgrades, pins or removes packages (`pip install`, `conda install`, `Pkg.add`, ...) or that checks or changes the Python version. The environment is fixed and shared by other runs.
 
 ### TWO-MODE WORKFLOW
 

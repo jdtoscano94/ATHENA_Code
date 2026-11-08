@@ -188,7 +188,7 @@ def retrieval_team(
                 validator_result_dict = validator_agent.run(validator_input)
                 validator_feedback = validator_result_dict['output'] # Store for next loop
                 print(f"Validator Message:\n{validator_feedback}")
-                is_approval = check_approval(validator_feedback)
+                is_approval = check_approval(validator_feedback.strip().split('\n')[0].upper())
                 print(f"Approval Status: {is_approval}")
                 break # Found match, stop searching documents
         if not found_match:
@@ -289,7 +289,7 @@ def implementation_team(
                 print(f"  ❌ Error at {cell_id}: {e}")
                 # Debug: Print the last few messages
                 print(f"  📝 Last 3 messages in history:")
-                for msg in planner_agent.chat_history[-6:]:
+                for msg in getattr(planner_agent, "chat_history", [])[-6:]:
                     print(f"    - Type: {type(msg).__name__}, Content length: {len(str(msg.content))}")
                 raise
 
@@ -346,7 +346,7 @@ def parse_planner_output(planner_output: str) -> Tuple[Dict[str, str], str]:
     return tasks_dict, dimensionality_note
 
 
-def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir='/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/PINN_codes/'):
+def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'Results', 'PINN_codes', '')):
     code_language=get_language_from_filename(filename)
     if requires_name:
         new_code_details = naming_agent.run('Original request:' + user_question)
@@ -1118,6 +1118,8 @@ Construct the final Total Loss function ($L_total$) by selecting the active term
         * **Early Stages (Laminar/Diffusive):** Use **Short Dwell** (5,000 iters). We only need to seed the next step.
         * **Late Stages (Turbulent/Convective):** Use **Long Dwell** (10,000 - 20,000+ iters). The shock/turbulence requires precise convergence to avoid falling off the solution manifold.
 
+* **Finite Iteration Budget (MANDATORY):** Every training stage (Adam, SSBroyden, each continuation step) must have an explicit, finite number of iterations. NEVER prescribe an open-ended stopping rule such as "train until the curves plateau" or "do not stop while either curve descends": the plateau is judged by the Advisor after the run, not inside the training loop. Early stopping is allowed only within the fixed budget, and training must stop if the loss or the error becomes NaN or Inf.
+
 **7. Weighting Strategy - MUST INCLUDE RATIONALE**
 
 **Definitions (CRITICAL DISTINCTION):**
@@ -1326,6 +1328,9 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 * **The "Local Behavior" Rule (vRBA):**
     * *Verdict:* **REJECT** if the plan freezes `lambdas`.
     * *Requirement:* The plan must state: "**`lambdas` are used for Weighting & Sampling during Adam, and for Sampling ONLY during SSBroyden.**" (They are *never* frozen, just used differently).
+
+* **The "Finite Budget" Rule:**
+    * *Verdict:* **REJECT** if any training stage lacks an explicit, finite iteration count, or if the plan makes stopping depend on reaching a plateau (e.g. "train until flat", "do not stop while either curve descends").
 ---
 ### OUTPUT FORMAT (Strict)
 
@@ -1631,6 +1636,7 @@ Your expertise is in **translating scientific requirements into code**, matching
 Your goal is to implement the [SCIENTIFIC_STRATEGY_REPORT] by modifying the provided [FULL_CODE_TEMPLATE] and integrating the [REFERENCE_FUNCTIONS].
 
 **CRITICAL BEHAVIORAL RULES:**
+0.  **NEVER MODIFY THE ENVIRONMENT:** Never add code that installs, updates, downgrades, pins or removes packages (`Pkg.add`, `Pkg.update`, `Pkg.pin`, `Pkg.rm`, `Pkg.instantiate`, `pip install`, `conda install`, ...) or that checks or changes the Julia/Python version. The environment is fixed and shared by other runs.
 1.  **NO STRATEGIC DEVIATION:** You are a **Strategy Follower**.
     * **FORBIDDEN:** Changing the architecture family (e.g., MLP to KAN) or Optimizer unless the Strategist explicitly asked for it.
     * **Configuration:** Use template defaults for learning rates/epochs unless explicitly instructed.
@@ -1869,6 +1875,8 @@ These are the **Advisor's responsibility**, not yours.
 **Part 1: Check for Unrecoverable Environment/User Errors (Highest Priority)**
 - First, analyze the **Log File** for errors that the **PlannerAgent CANNOT fix**.
 - Examples: `ModuleNotFoundError`, `ImportError`, `PermissionError`, or a conda activation failure.
+- Also unrecoverable: package or runtime incompatibilities, i.e. an error raised inside the internals of an installed package or the language runtime that no correct use of the API could avoid (e.g. Julia `UndefVarError` inside a dependency such as `VectorizationBase`, package precompilation failures, "missing from the cache" / version conflicts between installed packages, CUDA driver or library errors). Usage errors (wrong keyword, wrong boundary name, wrong argument types) are NOT in this class; they are fixable.
+- The software environment is FIXED and SHARED. Never ask the Planner to install, update, downgrade, pin or remove packages, or to change the Julia/Python version. If the only fix is to change the environment, return "STOP_UNRECOVERABLE".
 - If you find one of these, you must **STOP**. The loop cannot continue.
 - In this case, your output MUST be:
     - "status": "STOP_UNRECOVERABLE"
@@ -2041,7 +2049,7 @@ Follow these steps in exact order. Do not skip ahead.
         * *Symptoms:* The run is STABLE (no NaN/explosion) and accurate, BUT the **Loss curve and/or the Error curve are STILL DESCENDING at the rightmost point** (the minimum is reached only at the very last iteration). The training hit its iteration cap before flattening. This is the most common cause of a good-but-not-great final error.
         * *Distinction (CRITICAL):* Do NOT confuse this with "Success". A run is ONLY a success if BOTH curves have a genuinely FLAT average band across the last 50\\% of the final region (see the Dual-Curve Test above). A descending average loss = the model was still learning = **NOT done.**
         * *No rationalizing (CRITICAL):* Do NOT relabel a non-flat curve as converged via "the optimizer must have hit its tolerance" or "it early-terminated, so it's done." **Early termination is NOT evidence of a plateau** — a quasi-Newton optimizer (e.g. SSBroyden/BFGS) can stop on line-search breakdown or a loose tolerance while the error is still dropping. If the final-region tail is still descending OR oscillating-while-the-minimum-improves, this is Budget-Limited: recommend extending/restarting the LAST stage (e.g. "increase the last stage's iterations and reinitialize the Hessian to continue"), NOT approval.
-        * *The Fix:* **REJECT_FOR_REFINEMENT.** Recommend **"Increase the number of iterations of the LAST training stage (e.g. 2-5x) so both the loss and error curves flatten before the run ends."** Do NOT change architecture, embeddings, or physics — the setup is working; it simply needs more steps to reach its floor.
+        * *The Fix:* **REJECT_FOR_REFINEMENT.** Recommend **"Increase the number of iterations of the LAST training stage (e.g. 2-5x) so both the loss and error curves flatten before the run ends."** Do NOT change architecture, embeddings, or physics — the setup is working; it simply needs more steps to reach its floor. State the new iteration count of the last stage as a number (e.g. "raise the final SSBroyden stage from 50,000 to 150,000 iterations"). Never request training "until the curves flatten": you assess the plateau after the run; it is not a stopping rule inside the code.
         * *Rationale:* Approving a still-descending run as "optimal" forfeits the accuracy that more iterations would have reached.
 
     **1. CHECK: Instability (Explosion/Divergence)**

@@ -188,7 +188,7 @@ def retrieval_team(
                 validator_result_dict = validator_agent.run(validator_input)
                 validator_feedback = validator_result_dict['output'] # Store for next loop
                 print(f"Validator Message:\n{validator_feedback}")
-                is_approval = check_approval(validator_feedback)
+                is_approval = check_approval(validator_feedback.strip().split('\n')[0].upper())
                 print(f"Approval Status: {is_approval}")
                 break # Found match, stop searching documents
         if not found_match:
@@ -289,7 +289,7 @@ def implementation_team(
                 print(f"  ❌ Error at {cell_id}: {e}")
                 # Debug: Print the last few messages
                 print(f"  📝 Last 3 messages in history:")
-                for msg in planner_agent.chat_history[-6:]:
+                for msg in getattr(planner_agent, "chat_history", [])[-6:]:
                     print(f"    - Type: {type(msg).__name__}, Content length: {len(str(msg.content))}")
                 raise
 
@@ -346,7 +346,7 @@ def parse_planner_output(planner_output: str) -> Tuple[Dict[str, str], str]:
     return tasks_dict, dimensionality_note
 
 
-def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir='/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/PINN_codes/'):
+def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'Results', 'PINN_codes', '')):
     code_language=get_language_from_filename(filename)
     if requires_name:
         new_code_details = naming_agent.run('Original request:' + user_question)

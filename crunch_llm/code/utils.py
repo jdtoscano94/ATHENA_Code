@@ -464,7 +464,7 @@ def create_folder_and_save_code(
     code_details: dict, 
     code_content: str, 
     language: str, 
-    base_results_dir: str = "/users/jdtoscan/data/jdtoscan/LLM/Results/generated_codes",
+    base_results_dir: str = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "Results", "generated_codes"),
     add_description: bool = True,
 ) -> (str, str, str):
     try:
@@ -1032,6 +1032,59 @@ def update_and_save_report(
     # Return only the main table for console display
     return main_table
 
+def _report_table_rows(report_content: str, header: str) -> list:
+    """Data rows (lists of stripped cells) of the Markdown table under `header`."""
+    m = re.search(re.escape(header) + r"\n(.*?)(?=\n#|\n---\s*$|\Z)", report_content, re.DOTALL)
+    if not m:
+        return []
+    rows = []
+    for line in m.group(1).strip().split("\n"):
+        line = line.strip()
+        if not line.startswith("|") or line.startswith("| Run") or line.startswith("| :"):
+            continue
+        rows.append([c.strip() for c in line.strip("|").split(" | ")])
+    return rows
+
+
+def parse_experiment_report_history(report_content: str):
+    """Rebuild the history list from an Experiment_Report.md written by update_and_save_report.
+
+    Returns (history, main_table). Each entry carries the fields update_and_save_report reads
+    (refinement_iterations, implementation_details, testing_error, the four scores, project_dir,
+    data_saving), so a resumed run rewrites the same table and keeps every earlier trial.
+    'change_architecture' is not in the report and is not recovered.
+    """
+    m = re.search(r"## Full Trial History\n(.*?)(?=\n### Data Output Reference|\Z)", report_content, re.DOTALL)
+    main_table = m.group(1).strip() + "\n" if m else ""
+    paths = {r[0]: r[-1].strip("`") for r in _report_table_rows(report_content, "### Directory Reference") if len(r) >= 2}
+    data = {r[0]: " | ".join(r[1:]).replace("<br>", "\n") for r in _report_table_rows(report_content, "### Data Output Reference") if len(r) >= 2}
+    history = []
+    for cells in _report_table_rows(report_content, "## Full Trial History"):
+        if len(cells) < 8:
+            continue
+        run_id = cells[0]
+        err = cells[-6]
+        if err.endswith("%"):
+            try:
+                err = f"{float(err[:-1]) / 100.0:.7e}"
+            except ValueError:
+                pass
+        entry = {
+            "refinement_iterations": int(run_id) if run_id.isdigit() else run_id,
+            "implementation_details": " | ".join(cells[1:-6]),
+            "summary": " | ".join(cells[1:-6]),
+            "testing_error": err,
+            "score_integrity": cells[-5], "score_accuracy": cells[-4],
+            "score_details": cells[-3], "score_optimality": cells[-2],
+            "project_dir": paths.get(run_id, "N/A"),
+            "data_saving": data.get(run_id, "N/A"),
+        }
+        history.append(entry)
+    if history:
+        print(f"--- Reconstructed {len(history)} run(s) from the experiment report. ---")
+    return history, main_table
+
+
 def parse_history_log_to_list(history_log_string: str) -> list:
     """
     Parses the Markdown history table string and reconstructs
@@ -1207,8 +1260,14 @@ def load_checkpoint_data(resume_project_dir, load_code_only=False):
         
         # Import parser (assuming it lives in utils or is importable)
         from crunch_llm.code.utils import parse_history_log_to_list 
-        history = parse_history_log_to_list(history_log_string)
-        
+        # Current reports carry the 8-column table written by update_and_save_report;
+        # the 3-column parser below only reads the legacy format.
+        history, main_table = parse_experiment_report_history(report_content)
+        if history:
+            history_log_string = main_table
+        else:
+            history = parse_history_log_to_list(history_log_string)
+
         print(f"--- Successfully loaded all checkpoint data. ---")
         
     except Exception as e:

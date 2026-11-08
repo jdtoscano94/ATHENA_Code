@@ -43,6 +43,101 @@ dotenv_path = current_file_dir / '.env'
 load_dotenv(dotenv_path=dotenv_path)
 
 
+# ----------------------------------------------------------------------------
+# Ollama Cloud (hosted models, no local server). Selected with
+# model_provider='ollama_cloud'. Key read from OLLAMA_API_KEY or OLLAMA_API.
+# ----------------------------------------------------------------------------
+OLLAMA_CLOUD_URL = os.environ.get("OLLAMA_CLOUD_URL", "https://ollama.com")
+OLLAMA_CLOUD_PROVIDERS = ("ollama_cloud", "ollama-cloud")
+
+
+def _is_transient_net_error(exc):
+    """Dropped streams, resets, timeouts, and 429/5xx from the server."""
+    import httpx
+    if isinstance(exc, httpx.TransportError):   # RemoteProtocolError, ReadError, timeouts, ...
+        return True
+    try:
+        import ollama
+        if isinstance(exc, ollama.ResponseError):
+            return getattr(exc, "status_code", None) in (408, 429, 500, 502, 503, 504)
+    except ImportError:
+        pass
+    return False
+
+
+class RetryingChatOllama(ChatOllama):
+    """ChatOllama that re-sends a call when the network or server fails mid-call.
+
+    Only transient transport/server errors are retried (never model or parsing
+    errors), with exponential backoff. Usage callbacks fire once per successful
+    call; tokens streamed before a dropped connection are not reported by the
+    server and therefore cannot be counted.
+    """
+    max_net_retries: int = 6
+
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        delay = 10
+        for attempt in range(self.max_net_retries + 1):
+            try:
+                result = super()._generate(messages, stop=stop, run_manager=run_manager, **kwargs)
+                try:
+                    gen = result.generations[0]
+                    reason = ((gen.generation_info or {}).get("done_reason")
+                              or (gen.message.response_metadata or {}).get("done_reason"))
+                    if reason == "length":
+                        print(f"[ollama_cloud] {self.model}: output hit the {self.num_predict}-token "
+                              "cap (done_reason=length); the reply is truncated", flush=True)
+                except (AttributeError, IndexError):
+                    pass
+                return result
+            except Exception as exc:
+                if attempt == self.max_net_retries or not _is_transient_net_error(exc):
+                    raise
+                print(f"[ollama_cloud] {type(exc).__name__} on {self.model}: "
+                      f"retry {attempt + 1}/{self.max_net_retries} in {delay}s", flush=True)
+                time.sleep(delay)
+                delay = min(delay * 2, 180)
+
+
+# Output cap per call (thinking included). Open-team calls average ~3k output tokens; one GLM
+# call in the RT run-5 attempt ran away to 1,045,969 tokens (2026-11-06). Same cap for every model.
+OLLAMA_CLOUD_MAX_OUTPUT = int(os.environ.get("ATHENA_OLLAMA_MAX_OUTPUT", "65536"))
+
+
+# Replacement for the local-Ollama roles, set by a team builder (HENA team 'closed'):
+# (provider, model). Process-wide: one run uses one team.
+LOCAL_OLLAMA_REPLACEMENT = None
+
+
+def _local_ollama_chat(model: str, temperature: float = 0):
+    """provider='ollama' (a local Ollama server, used by the original team's gpt-oss:120b roles).
+    With LOCAL_OLLAMA_REPLACEMENT set, those roles use that model instead. Otherwise, with
+    ATHENA_OLLAMA_CLOUD_ONLY=1 (set in the ATHENA box), the same model is served by Ollama Cloud:
+    models are never served locally."""
+    if LOCAL_OLLAMA_REPLACEMENT is not None:
+        r_provider, r_model = LOCAL_OLLAMA_REPLACEMENT
+        if r_provider == "google":
+            if "GOOGLE_API_KEY" not in os.environ:
+                raise ValueError("GOOGLE_API_KEY not found in environment.")
+            return ChatGoogleGenerativeAI(model=r_model, temperature=temperature)
+        raise ValueError(f"Unsupported LOCAL_OLLAMA_REPLACEMENT provider: {r_provider!r}")
+    if os.environ.get("ATHENA_OLLAMA_CLOUD_ONLY") == "1":
+        return _ollama_cloud_chat(model, temperature)
+    return ChatOllama(model=model, temperature=temperature)
+
+
+def _ollama_cloud_chat(model: str, temperature: float = 0):
+    """ChatOllama pointed at Ollama Cloud with bearer-token auth."""
+    key = os.environ.get("OLLAMA_API_KEY") or os.environ.get("OLLAMA_API")
+    if not key:
+        raise ValueError("OLLAMA_API_KEY (or OLLAMA_API) not found in environment.")
+    return RetryingChatOllama(
+        model=model, temperature=temperature, base_url=OLLAMA_CLOUD_URL,
+        num_predict=OLLAMA_CLOUD_MAX_OUTPUT,
+        client_kwargs={"headers": {"Authorization": f"Bearer {key}"}, "timeout": 900},
+    )
+
+
 
 # ============================================================================
 # HELPER FUNCTIONS
@@ -301,11 +396,11 @@ class CodingAgent:
                 temperature=self.temperature
             )
         
+        elif self.provider in OLLAMA_CLOUD_PROVIDERS:
+            return _ollama_cloud_chat(self.model, self.temperature)
+
         elif self.provider == "ollama":
-            return ChatOllama(
-                model=self.model,
-                temperature=self.temperature
-            )
+            return _local_ollama_chat(self.model, self.temperature)
         
         elif self.provider in ["xai", "grok"]:
             if "XAI_API_KEY" not in os.environ:
@@ -569,8 +664,10 @@ class aRAGAgent_multimodal:
         llm = None
         provider = model_provider.lower()
         
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
             
         elif provider == 'google':
             
@@ -803,8 +900,10 @@ class aRAGAgent_single_chunk:
         # --- 4. Initialize Main LLM ---
         llm = None
         provider = model_provider.lower()
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
         elif provider == 'google':
             if "GOOGLE_API_KEY" not in os.environ:
                 raise ValueError("GOOGLE_API_KEY not found in environment.")
@@ -874,8 +973,10 @@ class Multimodal_agent:
         llm = None
         provider = model_provider.lower()
 
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
 
         elif provider == 'google':
             if "GOOGLE_API_KEY" not in os.environ:
@@ -1144,8 +1245,10 @@ class Retriever_Agent:
         provider = model_provider.lower()
         llm = None
 
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
             
         elif provider == 'google':
             
@@ -1171,6 +1274,8 @@ class Retriever_Agent:
         else:
             raise ValueError(f"Unknown model_provider: '{model_provider}'.")
         
+        self.llm = llm  # kept for usage tracking
+
         # --- Modern Agent Setup ---
         self.agent = create_agent(
             model=llm,
@@ -1269,8 +1374,10 @@ class memoryAgent:
         provider = model_provider.lower()
 
         # --- 1. OLLAMA ---
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
             
         # --- 2. GOOGLE ---
         elif provider == 'google':
@@ -1309,6 +1416,8 @@ class memoryAgent:
                 f"Unknown model_provider: '{model_provider}'. "
                 "Please use 'ollama', 'google', 'openai', 'claude', or 'grok'."
             )
+
+        self.llm = llm  # kept for usage tracking
 
         # --- Modern Agent Setup ---
         tools = []  # Add tools here if needed in the future
@@ -1384,8 +1493,10 @@ class StructuredAgent:
         provider = model_provider.lower()
 
         # --- 1. OLLAMA ---
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
             
         # --- 2. GOOGLE ---
         elif provider == 'google':
@@ -1515,8 +1626,10 @@ class Struct_memoryAgent:
         provider = model_provider.lower()
 
         # --- 1. OLLAMA ---
-        if provider == 'ollama':
-            llm = ChatOllama(model=model, temperature=temperature)
+        if provider in OLLAMA_CLOUD_PROVIDERS:
+            llm = _ollama_cloud_chat(model, temperature)
+        elif provider == 'ollama':
+            llm = _local_ollama_chat(model, temperature)
             
         # --- 2. GOOGLE ---
         elif provider == 'google':
@@ -1555,6 +1668,8 @@ class Struct_memoryAgent:
                 f"Unknown model_provider: '{model_provider}'. "
                 "Please use 'ollama', 'google', 'openai', 'claude', or 'grok'."
             )
+
+        self.llm = llm  # kept for usage tracking
 
         # --- Modern Agent Setup ---
         tools = []  # Add tools here if needed in the future

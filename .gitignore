@@ -42,9 +42,15 @@ Results/NM_codes/Burgers_Periodic_SinSum/2025_12_11_2256/
 # this dir only fills when an explicit log_base= override is passed. Scratch — not tracked.
 crunch_llm/code/HENA_logs/
 scratch/
+# Default --usage-dir of run_athena.py (token/time logs of local runs)
+run_logs/
+# Logs of earlier local DeepONet launches (the tracked demo log is <name>_stage1_log.txt)
+Examples_DeepONet/_prev_*
+Examples_DeepONet/_fromscratch_launch.out
 
 # --- Local backups ---
 *.bak
+*.bak_*/
 requirements_old-stack_*.txt
 pyproject_pre-langgraph_*.toml
 
@@ -61,3 +67,7 @@ Reviews/
 
 # --- Large reference dataset (download from Google Drive, see README) ---
 Documents/codes/Data/Burger_1000_5000.mat
+
+# --- Release container: built image and build logs stay local ---
+container/images/
+container/logs/

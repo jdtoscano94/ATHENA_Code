@@ -1,0 +1,108 @@
+Bootstrap: docker
+From: rockylinux:9
+
+# ATHENA release image: everything the agents and the generated codes need is inside.
+#   Julia 1.11.9 + the frozen ATHENA project (Trixi 0.13.15, ...), precompiled for a portable CPU target
+#   NABLA_JAX Python env (JAX 0.8.2 CUDA 12 wheels, Flax, Optax, Crunch)   -> the PINN / operator codes
+#   ATHENA Python env (LangGraph, LangChain, Ollama/OpenAI/Gemini clients)  -> the orchestrator
+#   OpenCode (pinned)                                                       -> the two-agent box
+# The GPU comes from the host driver: apptainer exec --nv athena_release.sif ...
+# Build from the repository root: bash container/build_release.sh
+
+%labels
+    Name ATHENA_release
+    Base rockylinux:9
+    Julia 1.11.9
+    Python 3.12.12
+    OpenCode 1.18.33
+
+%files
+    container/requirements_nabla_jax.txt /opt/athena/container/requirements_nabla_jax.txt
+    container/requirements_athena.txt    /opt/athena/container/requirements_athena.txt
+    container/julia/Project.toml         /opt/athena/container/julia/Project.toml
+    container/julia/Manifest.toml        /opt/athena/container/julia/Manifest.toml
+    third_party/NABLA                    /opt/athena/third_party/NABLA
+    third_party/Crunch.jl                /opt/athena/third_party/Crunch.jl
+
+%post
+    set -euo pipefail
+    JULIA_VERSION=1.11.9
+    PYTHON_VERSION=3.12.12
+    OPENCODE_VERSION=1.18.33
+    CPU_TARGET='generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)'
+
+    # --- system tools (the same set as the Open-GRAFT ATHENA_box image) ---
+    dnf -y install epel-release
+    dnf -y module enable nodejs:20
+    dnf -y install --allowerasing \
+        gcc gcc-c++ gcc-gfortran libgomp make cmake \
+        git tmux curl wget which procps-ng hostname iproute \
+        tar gzip bzip2 xz unzip zip rsync jq bc patch file less \
+        findutils diffutils vim-enhanced nano \
+        readline ncurses-libs glibc-langpack-en ca-certificates openssl \
+        ripgrep fd-find nodejs npm \
+        libXt libXrender libXext mesa-libGL fontconfig freetype
+    dnf clean all && rm -rf /var/cache/dnf
+
+    # --- Python: micromamba gives the exact interpreter, pip the pinned wheels ---
+    mkdir -p /opt/micromamba/bin
+    curl -fsSL https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xj -C /opt/micromamba bin/micromamba
+    export MAMBA_ROOT_PREFIX=/opt/micromamba
+    for env in nabla_jax athena; do
+        /opt/micromamba/bin/micromamba create -y -p /opt/envs/$env -c conda-forge python=$PYTHON_VERSION pip
+    done
+    /opt/envs/nabla_jax/bin/pip install --no-cache-dir -r /opt/athena/container/requirements_nabla_jax.txt
+    /opt/envs/nabla_jax/bin/pip install --no-cache-dir --no-deps /opt/athena/third_party/NABLA
+    /opt/envs/athena/bin/pip install --no-cache-dir -r /opt/athena/container/requirements_athena.txt
+    /opt/micromamba/bin/micromamba clean -a -y
+
+    # --- Julia: the binary, then the frozen project precompiled into a depot that is read-only at run time ---
+    curl -fsSL "https://julialang-s3.julialang.org/bin/linux/x64/${JULIA_VERSION%.*}/julia-${JULIA_VERSION}-linux-x86_64.tar.gz" \
+        | tar -xz -C /opt
+    mv /opt/julia-${JULIA_VERSION} /opt/julia
+    export JULIA_DEPOT_PATH=/opt/julia_depot
+    export JULIA_PROJECT=/opt/athena/container/julia
+    export JULIA_CPU_TARGET="$CPU_TARGET"
+    export JULIA_PKG_PRECOMPILE_AUTO=0
+    export JUPYTER=/opt/envs/nabla_jax/bin/jupyter      # IJulia: use this Jupyter, do not install a Conda one
+    export GKSwstype=100
+    /opt/julia/bin/julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile(); Pkg.status()'
+    # load the heavy packages once so their caches are complete (P4estMesh path included)
+    /opt/julia/bin/julia -e 'using Trixi, OrdinaryDiffEq, Gridap, StartUpDG, Plots; println("julia load ok")'
+    chmod -R a+rX /opt/julia_depot
+
+    # --- OpenCode (pinned) ---
+    npm install -g --no-fund --no-audit "opencode-ai@${OPENCODE_VERSION}"
+    npm cache clean --force
+
+    mkdir -p /box /box_software
+    echo "built $(date -u +%FT%TZ) julia=$JULIA_VERSION python=$PYTHON_VERSION opencode=$OPENCODE_VERSION" > /opt/athena/BUILD_INFO
+
+%environment
+    export LANG=en_US.UTF-8
+    export LC_ALL=en_US.UTF-8
+    export PATH=/opt/julia/bin:/opt/envs/nabla_jax/bin:/usr/local/bin:/usr/bin:/bin
+    export ATHENA_PY=/opt/envs/athena/bin/python        # the orchestrator (run_athena.py)
+    export NABLA_PY=/opt/envs/nabla_jax/bin/python      # the generated PINN / operator codes
+    export JULIA_PROJECT=/opt/athena/container/julia
+    # a writable depot in front of the read-only image depot: anything added or recompiled at
+    # run time lands there and never touches the image
+    export JULIA_DEPOT_PATH="${ATHENA_JULIA_DEPOT:-$HOME/.athena_julia_depot}:/opt/julia_depot"
+    export JULIA_CPU_TARGET='generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)'
+    export JUPYTER=/opt/envs/nabla_jax/bin/jupyter
+    export GKSwstype=100
+    export OMP_NUM_THREADS=${OMP_NUM_THREADS:-4}
+
+%runscript
+    exec /bin/bash "$@"
+
+%test
+    /opt/julia/bin/julia --version
+    /opt/envs/nabla_jax/bin/python -c "import jax, flax, optax, Crunch; print('jax', jax.__version__)"
+    /opt/envs/athena/bin/python -c "import langgraph, langchain_core; print('athena env ok')"
+    opencode --version
+
+%help
+    ATHENA release image. Build: bash container/build_release.sh (from the repo root).
+    Run: apptainer exec --nv container/images/athena_release.sif <command>
+    Julia and both Python envs are inside; the repository itself is bound in at run time.

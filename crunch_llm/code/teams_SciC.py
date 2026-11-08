@@ -104,7 +104,7 @@ def retrieval_team(
                 validator_result_dict = validator_agent.run(validator_input)
                 validator_feedback = validator_result_dict['output'] # Store for next loop
                 print(f"Validator Message:\n{validator_feedback}")
-                is_approval = check_approval(validator_feedback)
+                is_approval = check_approval(validator_feedback.strip().split('\n')[0].upper())
                 print(f"Approval Status: {is_approval}")
                 break # Found match, stop searching documents
         if not found_match:
@@ -204,7 +204,7 @@ def implementation_team(
                 print(f"  ❌ Error at {cell_id}: {e}")
                 # Debug: Print the last few messages
                 print(f"  📝 Last 3 messages in history:")
-                for msg in planner_agent.chat_history[-6:]:
+                for msg in getattr(planner_agent, "chat_history", [])[-6:]:
                     print(f"    - Type: {type(msg).__name__}, Content length: {len(str(msg.content))}")
                 raise
 
@@ -259,7 +259,7 @@ def parse_planner_output(planner_output: str) -> Tuple[Dict[str, str], str]:
     return tasks_dict, dimensionality_note
 
 
-def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir='/users/jdtoscan/data/jdtoscan/LLM/Crunch_LLM/Results/PINN_codes/'):
+def filing_team_PINN(user_question,filename,final_clean_code,naming_agent,requires_name=True,new_code_details='Test',base_results_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 'Results', 'PINN_codes', '')):
     code_language=get_language_from_filename(filename)
     if requires_name:
         new_code_details = naming_agent.run('Original request:' + user_question)
@@ -1005,6 +1005,7 @@ Your goal is to formulate a "Scientific Strategy Report" to solve the [USER_QUES
     * **Trigger:** Review the [ADVISOR_REPORT] input carefully.
     * **Action:** If the Advisor requested specific changes (e.g., "Switch to flux", "Decrease CFL"), you MUST list them here.
     * **Constraint:** These specific values **supersede** any template defaults. If the Advisor is silent, write "None".
+    * **Standalone Trials (MANDATORY):** Each trial runs from scratch in a new folder and cannot access the outputs of earlier trials. Never require loading, re-rendering or comparing against a previous run's files; if the Advisor asks for this, transcribe it as the equivalent change to the new run (e.g., fix the plotting and rerun).
 
 **4. Visualization Strategy:**
 * **Field Selection (Analysis):** You must select the **1 or 2 most relevant primary fields** to plot.
@@ -1113,6 +1114,11 @@ Your goal is to catch scientific errors, logical inconsistencies, and **redundan
 * *Verdict:* **REJECT**.
 * *Explanation:* "Insubordination: The Advisor explicitly requested specific changes (e.g., [Insert Request]), but you ignored them in Section 3. You must transcribe the Advisor's mandatory overrides exactly."
 
+**9. The "Standalone Trial" Check (Feasibility)**
+* *Scenario:* The [STRATEGIST_PLAN] requires loading, re-rendering, or comparing against files produced by a previous trial (e.g., "re-render Run 5's saved snapshots").
+* *Verdict:* **REJECT**.
+* *Explanation:* "Infeasible Dependency: each trial runs from scratch in a new folder and cannot access earlier outputs. Replace it with the equivalent change to the new run (e.g., fix the plotting and rerun). This takes precedence over Check 8."
+
 ---
 ### OUTPUT FORMAT (Strict)
 
@@ -1132,6 +1138,7 @@ Your expertise is in **translating scientific requirements into correct Julia sy
 Your goal is to implement the [SCIENTIFIC_STRATEGY_REPORT] by modifying the provided [FULL_CODE_TEMPLATE].
 
 **CRITICAL BEHAVIORAL RULES:**
+0.  **NEVER MODIFY THE ENVIRONMENT:** Never add code that installs, updates, downgrades, pins or removes packages (`Pkg.add`, `Pkg.update`, `Pkg.pin`, `Pkg.rm`, `Pkg.instantiate`, `pip install`, `conda install`, ...) or that checks or changes the Julia/Python version. The environment is fixed and shared by other runs.
 1.  **NO STRATEGIC DEVIATION:** You are a **Strategy Follower**, not a Strategy Creator.
     * **FORBIDDEN:** Changing the numerical method (e.g., switching from Analytical/MoC to Trixi/DGSEM) if the Strategist did not explicitly ask for it.
      **Configuration:** "Use template defaults." unless the strategist or the debugger required. (Do NOT list N, K, or Time Stepper unless the Advisor explicitly requested a change). The CFL callback is much more important than the adaptive timesteping.
@@ -1280,6 +1287,8 @@ Your task is to analyze these inputs and return a single JSON object with two ke
 **Part 1: Check for Unrecoverable Environment/User Errors (Highest Priority)**
 - First, analyze the **Log File** for errors that the **PlannerAgent CANNOT fix**.
 - Examples: `ModuleNotFoundError`, `ImportError`, `PermissionError`, or a conda activation failure.
+- Also unrecoverable: package or runtime incompatibilities, i.e. an error raised inside the internals of an installed package or the language runtime that no correct use of the API could avoid (e.g. Julia `UndefVarError` inside a dependency such as `VectorizationBase`, package precompilation failures, "missing from the cache" / version conflicts between installed packages, CUDA driver or library errors). Usage errors (wrong keyword, wrong boundary name, wrong argument types) are NOT in this class; they are fixable.
+- The software environment is FIXED and SHARED. Never ask the Planner to install, update, downgrade, pin or remove packages, or to change the Julia/Python version. If the only fix is to change the environment, return "STOP_UNRECOVERABLE".
 - If you find one of these, you must **STOP**. The loop cannot continue.
 - In this case, your output MUST be:
     - "status": "STOP_UNRECOVERABLE"
@@ -1470,6 +1479,7 @@ The objective is to generate **High-Fidelity Ground Truth Data** to train a Phys
 
 4.  **Mandatory Feedback:**
     * If `REJECTED_FOR_REFINEMENT`, the **Targeted Improvements** section must provide specific instructions (e.g., "Switch to `flux_hllc`", "Increase `polydeg`").
+    * **Standalone Trials (MANDATORY):** Every trial is a new standalone script that runs from scratch in its own new folder; it cannot read, reuse, re-render or resume the outputs of a previous trial. Never recommend re-plotting or post-processing an earlier run's saved data; phrase every fix as a change to the next full run (e.g., "fix the plotting routine and rerun").
 
 **Section 3: Forensic Analysis & Feedback**
 * **Observation:** [Describe *exactly* what you see in the plots/logs.

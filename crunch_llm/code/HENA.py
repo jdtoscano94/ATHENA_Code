@@ -50,6 +50,26 @@ import crunch_llm.code.teams_SciML_PIML as TB
 import crunch_llm.code.teams_SciML_Operators as TC
 
 
+def report_unrecoverable(project_dir, debugger_report):
+    """Debugger returned STOP_UNRECOVERABLE (environment / package / user-input error).
+    Stop the loop instead of sending the error back to the Planner, and leave a note
+    for the human in the project directory."""
+    msg = str(debugger_report)
+    print("\n" + "=" * 70)
+    print("🛑 STOP_UNRECOVERABLE: the Debugger classified this as an environment,")
+    print("   package or user-input error that the agents must not try to fix.")
+    print("   Analysis for the user:\n" + msg)
+    print("=" * 70 + "\n")
+    if project_dir:
+        try:
+            with open(os.path.join(project_dir, "UNRECOVERABLE_ERROR.md"), "w") as f:
+                f.write("# Run stopped: unrecoverable error\n\n"
+                        f"{datetime.now().isoformat(timespec='seconds')}\n\n{msg}\n")
+        except OSError as e:
+            print(f"(could not write UNRECOVERABLE_ERROR.md: {e})")
+    return msg
+
+
 # ==========================================================================
 # Configuration (vector-DB paths are machine-specific — see CLAUDE.md).
 # Override any field by passing a partial dict as `cfg` to run_hena/build_agents.
@@ -357,6 +377,164 @@ def build_agents_pinn(cfg):
         register_agent_parser=register_agent_parser)
 
 
+# ==========================================================================
+# Open-weight team (model-sensitivity study, round-2 revision).
+# Same roles, prompts, retrieval and loop as build_agents_pinn; only the
+# generation models change, all served by Ollama Cloud (no local server).
+# Retrieval embeddings stay on Google gemini-embedding-001 so the vector DBs
+# are unchanged and the comparison isolates the LLMs.
+# Design rule: each producer is checked by a different model
+# (strategist GLM / critic Kimi; planner Kimi / inspector DeepSeek).
+# ==========================================================================
+OPEN_TEAM = dict(
+    strategist='glm-5.3',
+    critic='kimi-k3.1-pro',
+    validator='glm-5.3',
+    librarian='nemotron-3-ultra',
+    planner='kimi-k3.1-pro',
+    inspector='deepseek-v4.1-flash:1017',
+    debugger='kimi-k3.1-pro',
+    advisor='kimi-k3.1-pro',
+    utility='deepseek-v4.1-flash:1017',   # retriever, collector, parsers, patcher, naming
+)
+_OC = 'ollama_cloud'
+
+
+def build_agents_pinn_open(cfg, team=None):
+    """Family B agents (teams_SciML_PIML) with the open-weight team."""
+    m = dict(OPEN_TEAM, **(team or {}))
+    strategist_agent = memoryAgent(
+        model=m['strategist'], verbose=False,
+        system_prompt=TB.strategist_PINN_system_prompt, model_provider=_OC)
+    critic_agent = memoryAgent(
+        model=m['critic'], verbose=False,
+        system_prompt=TB.strategist_critic_system_prompt_PIML, model_provider=_OC)
+
+    retriever_agent = Retriever_Agent(
+        model=m['utility'], model_provider=_OC, verbose=False,
+        system_prompt=TB.Retriever_system_prompt_PIML,
+        embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
+        db_path=cfg['db_path'], collection_name=cfg['codes_database'], k=3)
+    validator_agent = memoryAgent(
+        model=m['validator'], verbose=False,
+        system_prompt=TB.Validator_system_prompt_PIML, model_provider=_OC)
+    collector_agent = Retriever_Agent(
+        model=m['utility'], model_provider=_OC, verbose=False,
+        system_prompt=TB.collector_system_prompt_PIML,
+        embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
+        db_path=cfg['db_functions_ollama'], collection_name=cfg['modules_name'], k=1)
+    librarian_agent = memoryAgent(
+        model=m['librarian'], verbose=False,
+        system_prompt=TB.librarian_system_prompt_PIML, model_provider=_OC)
+
+    planner_agent = memoryAgent(
+        model=m['planner'], verbose=False,
+        system_prompt=TB.planner_agent_system_prompt_PIML, model_provider=_OC)
+    planner_parser_agent = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TB.planner_parser_system_prompt, verbose=False)
+    patcher_agent = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TB.patcher_agent_system_prompt_PINN, verbose=False)
+
+    inspector_agent = StructuredAgent(
+        model=m['inspector'], model_provider=_OC,
+        system_prompt=TB.inspector_system_prompt_PIML, verbose=False)
+    naming_agent = StructuredAgent(
+        model=m['utility'], model_provider=_OC, verbose=False,
+        system_prompt=TB.naming_agent_system_prompt_PINN)
+    debugger_agent = StructuredAgent(
+        model=m['debugger'], model_provider=_OC, verbose=False,
+        system_prompt=TB.debugger_system_prompt_numerical)
+
+    advisor_agent = aRAGAgent_multimodal(
+        model=m['advisor'], verbose=True,
+        system_prompt=TB.advisor_system_prompt_PIML, model_provider=_OC,
+        embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
+        db_path=cfg['db_functions_ollama'], collection_name=cfg['modules_name'], k=5)
+    advisor_parser = StructuredAgent(
+        model=m['utility'], model_provider=_OC, verbose=False,
+        system_prompt=TB.advisor_parser_system_prompt_ON)
+    register_agent_parser = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TB.register_agent_system_prompt_numerical, verbose=False)
+
+    return dict(
+        strategist_agent=strategist_agent, critic_agent=critic_agent,
+        retriever_agent=retriever_agent, validator_agent=validator_agent,
+        collector_agent=collector_agent, librarian_agent=librarian_agent,
+        planner_agent=planner_agent, planner_parser_agent=planner_parser_agent,
+        patcher_agent=patcher_agent, inspector_agent=inspector_agent,
+        naming_agent=naming_agent, debugger_agent=debugger_agent,
+        advisor_agent=advisor_agent, advisor_parser=advisor_parser,
+        register_agent_parser=register_agent_parser)
+
+
+def build_agents_sciC_open(cfg, team=None):
+    """Family A agents (teams_SciC) with the open-weight team.
+
+    Same roles, prompts and retrieval as build_agents_sciC; the parsers
+    (planner/advisor/register) and retriever/patcher/naming use the utility model.
+    """
+    m = dict(OPEN_TEAM, **(team or {}))
+    strategist_agent = memoryAgent(
+        model=m['strategist'], verbose=False,
+        system_prompt=TA.strategist_system_prompt, model_provider=_OC)
+    critic_agent = memoryAgent(
+        model=m['critic'], verbose=False,
+        system_prompt=TA.strategist_critic_system_prompt, model_provider=_OC)
+
+    retriever_agent = Retriever_Agent(
+        model=m['utility'], model_provider=_OC, verbose=False,
+        system_prompt=TA.Retriever_system_prompt,
+        embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
+        db_path=cfg['db_path'], collection_name=cfg['codes_database'], k=3)
+    validator_agent = memoryAgent(
+        model=m['validator'], verbose=False,
+        system_prompt=TA.Validator_system_prompt, model_provider=_OC)
+
+    planner_agent = memoryAgent(
+        model=m['planner'], verbose=False,
+        system_prompt=TA.planner_agent_system_prompt_numerical, model_provider=_OC)
+    planner_parser_agent = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TA.planner_parser_system_prompt, verbose=False)
+    patcher_agent = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TA.patcher_agent_system_prompt_PINN, verbose=False)
+
+    inspector_agent = StructuredAgent(
+        model=m['inspector'], model_provider=_OC,
+        system_prompt=TA.inspector_system_prompt, verbose=False)
+    naming_agent = StructuredAgent(
+        model=m['utility'], model_provider=_OC, verbose=False,
+        system_prompt=TA.naming_agent_system_prompt_PINN)
+    debugger_agent = StructuredAgent(
+        model=m['debugger'], model_provider=_OC, verbose=False,
+        system_prompt=TA.debugger_system_prompt_numerical)
+
+    advisor_agent = aRAGAgent_multimodal(
+        model=m['advisor'], verbose=True,
+        system_prompt=TA.advisor_system_prompt_numerical, model_provider=_OC,
+        embeddings_provider='google', embeddings_model='models/gemini-embedding-001',
+        db_path=cfg['db_functions'], collection_name=cfg['modules_name'], k=5)
+    advisor_parser = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TA.inspector_system_prompt, verbose=False)
+    register_agent_parser = StructuredAgent(
+        model=m['utility'], model_provider=_OC,
+        system_prompt=TA.register_agent_system_prompt_numerical, verbose=False)
+
+    return dict(
+        strategist_agent=strategist_agent, critic_agent=critic_agent,
+        retriever_agent=retriever_agent, validator_agent=validator_agent,
+        planner_agent=planner_agent, planner_parser_agent=planner_parser_agent,
+        patcher_agent=patcher_agent, inspector_agent=inspector_agent,
+        naming_agent=naming_agent, debugger_agent=debugger_agent,
+        advisor_agent=advisor_agent, advisor_parser=advisor_parser,
+        register_agent_parser=register_agent_parser)
+
+
 def build_agents_operator(cfg):
     """Family C agents (teams_SciML_Operators)."""
     naming_agent = StructuredAgent(
@@ -413,6 +591,41 @@ def build_agents_operator(cfg):
 # ==========================================================================
 # HENA loops — one per family (lifted verbatim from the notebooks).
 # ==========================================================================
+def score_gate(history, iteration, cfg):
+    """Stopping gate, checked in code after every iteration (crashed ones included).
+
+    Once a trial has scored at least `score` (default 90), the run stops when `window`
+    (default 5) iterations have passed counting from that trial, whatever the later
+    iterations scored or whether they ran at all (e.g. 90, 78, 95, crash, crash -> stop).
+    The run then returns the best-scoring trial. cfg['score_gate'] = (score, window);
+    None turns the gate off. Returns None, or a dict describing the stop.
+    """
+    gate = cfg.get('score_gate', (90, 5))
+    if not gate:
+        return None
+    threshold, window = gate
+    scored = []
+    for h in history:
+        if not isinstance(h, dict) or not str(h.get('refinement_iterations')).isdigit() \
+                or int(h['refinement_iterations']) > iteration:
+            continue
+        try:
+            s = sum(int(h.get(k, 0)) for k in
+                    ('score_integrity', 'score_accuracy', 'score_details', 'score_optimality'))
+        except (TypeError, ValueError):
+            continue
+        scored.append((int(h['refinement_iterations']), s, h))
+    hits = [it for it, s, _ in scored if s >= threshold]
+    if not hits or iteration - min(hits) + 1 < window:
+        return None
+    best_it, best_score, best = max(scored, key=lambda x: (x[1], x[0]))   # ties: latest
+    return dict(first_hit=min(hits), best_iteration=best_it, best_score=best_score,
+                project_dir=best.get('project_dir', ''),
+                reason=(f"score gate: first score >= {threshold} at iteration {min(hits)}, "
+                        f"{iteration - min(hits) + 1} iterations since; best {best_score} "
+                        f"at iteration {best_it}"))
+
+
 def run_hena_sciC(user_question, agents, cfg,
                   checkpoint_project_dir='', load_code_only=False,
                   specific_requests=''):
@@ -441,6 +654,16 @@ def run_hena_sciC(user_question, agents, cfg,
     base_results_dir = cfg['base_results_dir']
     refinement_iterations = 0
     is_approved = False
+    stop_reason = None
+    gate_stop = None   # set when score_gate ends the run (a normal finish, not a stop for a human)
+    # Resuming from a checkpoint: keep counting iterations where the run stopped, and
+    # remember the last folder with a written Experiment_Report.md (the resume point).
+    last_checkpoint_dir = checkpoint_project_dir if history else ''
+    if history:
+        _ids = [h.get('refinement_iterations') for h in history if isinstance(h, dict)]
+        _ids = [int(i) for i in _ids if str(i).isdigit()]
+        refinement_iterations = (max(_ids) + 1) if _ids else len(history)
+        print(f'--- Resuming at iteration {refinement_iterations} ({len(history)} earlier trial(s)) ---')
     new_code_details = 'Test'
     requires_name = True
     debug_approval = True
@@ -490,6 +713,9 @@ def run_hena_sciC(user_question, agents, cfg,
                 success, log_file_name = run_code(project_dir, filename, final_filepath)
                 status, debugger_report, debug_approval, full_log_for_agent, log_content = TA.debugging_team_PINN(
                     user_question, final_filepath, log_file_name, debugger_agent)
+                if status == 'STOP_UNRECOVERABLE':
+                    stop_reason = report_unrecoverable(project_dir, debugger_report)
+                    break
                 if debug_approval:
                     print("--- 5. Calling Advisor Team ---")
                     error_report, is_approved, run_summary = TA.advisor_team(
@@ -504,6 +730,7 @@ def run_hena_sciC(user_question, agents, cfg,
                     run_summary['refinement_iterations'] = refinement_iterations
                     run_summary['data_saving'] = generated_data_details
                     history.append(run_summary)
+                    last_checkpoint_dir = project_dir
                     history_log_string = update_and_save_report(
                         history=history, user_question=user_question,
                         strategist_report=strategist_report,
@@ -530,9 +757,16 @@ def run_hena_sciC(user_question, agents, cfg,
         validator_agent.clear_history()
         advisor_agent.clear_history()
         refinement_iterations = refinement_iterations + 1
+        if not is_approved:
+            gate = score_gate(history, refinement_iterations - 1, cfg)
+            if gate:
+                print(f"--- STOP ({gate['reason']}) ---")
+                is_approved, gate_stop, project_dir = True, gate['reason'], gate['project_dir']
+                break
 
     return dict(
-        family="A", is_approved=is_approved, project_dir=project_dir,
+        family="A", stop_reason=stop_reason, gate_stop=gate_stop, last_checkpoint_dir=last_checkpoint_dir,
+        is_approved=is_approved, project_dir=project_dir,
         filename=filename, initial_code=initial_code,
         history=history, history_log_string=history_log_string,
         error_report=error_report, refinement_iterations=refinement_iterations)
@@ -576,6 +810,16 @@ def run_hena_pinn(user_question, agents, cfg,
     base_results_dir = cfg['base_results_dir']
     refinement_iterations = 0
     is_approved = False
+    stop_reason = None
+    gate_stop = None   # set when score_gate ends the run (a normal finish, not a stop for a human)
+    # Resuming from a checkpoint: keep counting iterations where the run stopped, and
+    # remember the last folder with a written Experiment_Report.md (the resume point).
+    last_checkpoint_dir = checkpoint_project_dir if history else ''
+    if history:
+        _ids = [h.get('refinement_iterations') for h in history if isinstance(h, dict)]
+        _ids = [int(i) for i in _ids if str(i).isdigit()]
+        refinement_iterations = (max(_ids) + 1) if _ids else len(history)
+        print(f'--- Resuming at iteration {refinement_iterations} ({len(history)} earlier trial(s)) ---')
     new_code_details = 'Test'
     clean_functions = ''
     requires_name = True
@@ -641,6 +885,9 @@ def run_hena_pinn(user_question, agents, cfg,
                 success, log_file_name = run_code(project_dir, filename, final_filepath)
                 status, debugger_report, debug_approval, full_log_for_agent, log_content = TB.debugging_team_PINN(
                     user_question, final_filepath, log_file_name, filename, debugger_agent)
+                if status == 'STOP_UNRECOVERABLE':
+                    stop_reason = report_unrecoverable(project_dir, debugger_report)
+                    break
                 if debug_approval:
                     print("--- 5. Calling Advisor Team ---")
                     error_report, is_approved, run_summary = TB.advisor_team(
@@ -655,6 +902,7 @@ def run_hena_pinn(user_question, agents, cfg,
                     run_summary['refinement_iterations'] = refinement_iterations
                     run_summary['data_saving'] = generated_data_details
                     history.append(run_summary)
+                    last_checkpoint_dir = project_dir
                     history_log_string = update_and_save_report(
                         history=history, user_question=user_question,
                         strategist_report=strategist_report,
@@ -680,9 +928,16 @@ def run_hena_pinn(user_question, agents, cfg,
         validator_agent.clear_history()
         advisor_agent.clear_history()
         refinement_iterations = refinement_iterations + 1
+        if not is_approved:
+            gate = score_gate(history, refinement_iterations - 1, cfg)
+            if gate:
+                print(f"--- STOP ({gate['reason']}) ---")
+                is_approved, gate_stop, project_dir = True, gate['reason'], gate['project_dir']
+                break
 
     return dict(
-        family="B", is_approved=is_approved, project_dir=project_dir,
+        family="B", stop_reason=stop_reason, gate_stop=gate_stop, last_checkpoint_dir=last_checkpoint_dir,
+        is_approved=is_approved, project_dir=project_dir,
         filename=filename, initial_code=initial_code,
         history=history, history_log_string=history_log_string,
         error_report=error_report, refinement_iterations=refinement_iterations)
@@ -713,6 +968,16 @@ def run_hena_operator(user_question, agents, cfg,
     base_results_dir = cfg['base_results_dir']
     refinement_iterations = 0
     is_approved = False
+    stop_reason = None
+    gate_stop = None   # set when score_gate ends the run (a normal finish, not a stop for a human)
+    # Resuming from a checkpoint: keep counting iterations where the run stopped, and
+    # remember the last folder with a written Experiment_Report.md (the resume point).
+    last_checkpoint_dir = checkpoint_project_dir if history else ''
+    if history:
+        _ids = [h.get('refinement_iterations') for h in history if isinstance(h, dict)]
+        _ids = [int(i) for i in _ids if str(i).isdigit()]
+        refinement_iterations = (max(_ids) + 1) if _ids else len(history)
+        print(f'--- Resuming at iteration {refinement_iterations} ({len(history)} earlier trial(s)) ---')
     new_code_details = 'Test'
     clean_functions = ''
     my_functions = ''
@@ -745,6 +1010,9 @@ def run_hena_operator(user_question, agents, cfg,
 
         status, debugger_report, debug_approval, full_log_for_agent, log_content = TC.debugging_team_PINN(
             user_question, final_filepath, log_file_name, debugger_agent)
+        if status == 'STOP_UNRECOVERABLE':
+            stop_reason = report_unrecoverable(project_dir, debugger_report)
+            break
 
         if debug_approval:
             error_report, is_approved, run_summary = TC.advisor_team_ON(
@@ -759,6 +1027,7 @@ def run_hena_operator(user_question, agents, cfg,
             run_summary['project_dir'] = project_dir
             run_summary['refinement_iterations'] = refinement_iterations
             history.append(run_summary)
+            last_checkpoint_dir = project_dir
             history_log_string = update_and_save_report(
                 history=history, user_question=user_question,
                 strategist_report=strategist_report,
@@ -778,7 +1047,8 @@ def run_hena_operator(user_question, agents, cfg,
         refinement_iterations = refinement_iterations + 1
 
     return dict(
-        family="C", is_approved=is_approved, project_dir=project_dir,
+        family="C", stop_reason=stop_reason, last_checkpoint_dir=last_checkpoint_dir,
+        is_approved=is_approved, project_dir=project_dir,
         filename=filename, initial_code=file_content,
         history=history, history_log_string=history_log_string,
         error_report=error_report, refinement_iterations=refinement_iterations)
@@ -789,15 +1059,46 @@ def run_hena_operator(user_question, agents, cfg,
 # ==========================================================================
 BUILDERS = {"A": build_agents_sciC, "B": build_agents_pinn, "C": build_agents_operator}
 RUNNERS = {"A": run_hena_sciC, "B": run_hena_pinn, "C": run_hena_operator}
+# Alternative teams for the model-sensitivity study (families added as built).
+# Single-model team: one open-weight model fills every role, so no producer is checked by a
+# different model. Same builders, prompts and retrieval as the open team.
+KIMI_TEAM = {role: 'kimi-k3.1-pro' for role in OPEN_TEAM}
+TEAM_BUILDERS = {
+    "open": {"A": build_agents_sciC_open, "B": build_agents_pinn_open},
+    "kimi": {"A": lambda cfg: build_agents_sciC_open(cfg, team=KIMI_TEAM),
+             "B": lambda cfg: build_agents_pinn_open(cfg, team=KIMI_TEAM)},
+}
+# Closed-source team: the published (original) team, with its gpt-oss:120b utility roles
+# (retriever, collector, parsers, patcher, naming) on Gemini 3.1 Pro instead.
+CLOSED_UTILITY = ('google', 'gemini-3.1-pro-preview')
 
 
-def build_agents(family, cfg=None):
-    """Build the agent set for a family ('A'|'B'|'C'). cfg defaults to get_config(family)."""
+def _closed_team(builder):
+    def build(cfg):
+        import crunch_llm.code.agents as _agents
+        _agents.LOCAL_OLLAMA_REPLACEMENT = CLOSED_UTILITY
+        return builder(cfg)
+    return build
+
+
+TEAM_BUILDERS["closed"] = {"A": _closed_team(build_agents_sciC), "B": _closed_team(build_agents_pinn)}
+
+
+def build_agents(family, cfg=None, team="original"):
+    """Build the agent set for a family ('A'|'B'|'C'). cfg defaults to get_config(family).
+
+    team : 'original' (the factories above) or a key of TEAM_BUILDERS (e.g. 'open').
+    """
     family = family.upper()
     if family not in BUILDERS:
         raise ValueError(f"Unknown family {family!r}; expected one of A, B, C.")
     cfg = cfg or get_config(family)
-    return BUILDERS[family](cfg)
+    if team == "original":
+        return BUILDERS[family](cfg)
+    builders = TEAM_BUILDERS.get(team)
+    if builders is None or family not in builders:
+        raise ValueError(f"No {team!r} team defined for family {family!r}.")
+    return builders[family](cfg)
 
 
 def run_hena(family, user_question, *, agents=None, cfg=None,
