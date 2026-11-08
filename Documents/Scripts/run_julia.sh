@@ -6,7 +6,7 @@
 #   - Julia 1.11.9 + the frozen ATHENA project (Trixi 0.13.15), precompiled, read-only in the image
 #   - only the script's folder is visible and writable (--containall), plus a per-job writable
 #     Julia depot, so a Pkg.add or a recompile lands there and never touches a shared environment
-#   - the reference data (Documents/codes/Data) is visible read-only
+#   - the reference data (Documents/codes/Data) and earlier runs (Results/) are visible read-only
 # ATHENA_EXEC=host runs on the host instead (no container): ATHENA_JULIA_ENV is the Julia project
 #   folder (instantiated from container/julia/{Project,Manifest}.toml) and ATHENA_JULIA_EXEC the
 #   julia binary (default: $ATHENA_JULIA_ENV/julia-1.11.9/bin/julia if present, else julia on PATH).
@@ -15,6 +15,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ATHENA_EXEC="${ATHENA_EXEC:-container}"
 ATHENA_SIF="${ATHENA_SIF:-$REPO/container/images/athena_release.sif}"
 DATA_DIR="$REPO/Documents/codes/Data"
+RESULTS_DIR="$REPO/Results"
 
 # Host mode only: the Julia project and binary.
 FROZEN_ENV="${ATHENA_JULIA_ENV:-}"
@@ -65,7 +66,12 @@ elif [ "$ATHENA_EXEC" = container ]; then
     [ -f "$ATHENA_SIF" ] || { echo "Error: container image not found at $ATHENA_SIF" >&2; exit 1; }
     DATA_BIND=()
     [ -d "$DATA_DIR" ] && DATA_BIND=(-B "$DATA_DIR:$DATA_DIR:ro")
+    # earlier runs under Results/ read-only (a later stage reads an earlier stage's output); the
+    # script's own folder is bound after it, so it stays writable even when it is inside Results/
+    RESULTS_BIND=()
+    [ -d "$RESULTS_DIR" ] && RESULTS_BIND=(-B "$RESULTS_DIR:$RESULTS_DIR:ro")
     apptainer exec --containall --cleanenv \
+        "${RESULTS_BIND[@]}" \
         -B "$SCRIPT_DIR:$SCRIPT_DIR" -B "$RUN_DEPOT:/box/julia_depot" \
         "${DATA_BIND[@]}" \
         --pwd "$SCRIPT_DIR" \

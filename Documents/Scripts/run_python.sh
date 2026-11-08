@@ -5,7 +5,7 @@
 # Outside a box, by default it runs inside the ATHENA release container (container/images/athena_release.sif), a box:
 #   the image's NABLA_JAX env (JAX 0.8.2 CUDA 12, Flax, Optax, Crunch), the host GPU via --nv,
 #   the script's folder visible and writable (--containall), and the reference data
-#   (Documents/codes/Data) visible read-only. A pip install lands in the container's throwaway
+#   (Documents/codes/Data) and earlier runs (Results/) visible read-only. A pip install lands in the container's throwaway
 #   home, never in a shared environment.
 # ATHENA_EXEC=host runs with a host conda env instead: ATHENA_CONDA_SH (path to conda.sh; default
 #   from `conda info --base`) and ATHENA_CONDA_ENV (default NABLA_JAX).
@@ -14,6 +14,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ATHENA_EXEC="${ATHENA_EXEC:-container}"
 ATHENA_SIF="${ATHENA_SIF:-$REPO/container/images/athena_release.sif}"
 DATA_DIR="$REPO/Documents/codes/Data"
+RESULTS_DIR="$REPO/Results"
 NOKEYS=(env -u OLLAMA_API -u OLLAMA_API_KEY -u GOOGLE_API_KEY -u OPENAI_API_KEY -u ANTHROPIC_API_KEY -u XAI_API_KEY)
 if [ "${ATHENA_IN_BOX:-0}" = 1 ]; then
     # already inside the box (athena_box_run.sh): the image's NABLA_JAX env; the generated code
@@ -44,7 +45,12 @@ if [ "$ATHENA_EXEC" = container ]; then
     [ -n "${CUDA_VISIBLE_DEVICES:-}" ] && GPU_ENV=(--env "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES")
     DATA_BIND=()
     [ -d "$DATA_DIR" ] && DATA_BIND=(-B "$DATA_DIR:$DATA_DIR:ro")
+    # earlier runs under Results/ read-only (a later stage reads an earlier stage's output); the
+    # script's own folder is bound after it, so it stays writable even when it is inside Results/
+    RESULTS_BIND=()
+    [ -d "$RESULTS_DIR" ] && RESULTS_BIND=(-B "$RESULTS_DIR:$RESULTS_DIR:ro")
     apptainer exec --nv --containall --cleanenv \
+        "${RESULTS_BIND[@]}" \
         -B "$SCRIPT_DIR:$SCRIPT_DIR" --pwd "$SCRIPT_DIR" \
         "${DATA_BIND[@]}" \
         "${GPU_ENV[@]}" \

@@ -5,202 +5,202 @@
 Progress in computational science depends on complex numerical workflows that must faithfully encode physical laws, yet translating conceptual insight into reliable code remains a major bottleneck. Although large language models can generate isolated code fragments, they lack the structured reasoning required to design, verify, and iteratively refine complete scientific pipelines. Here we introduce ATHENA, an agentic framework explicitly designed to emulate scientific research modeled as a knowledge-driven contextual bandit process. Its core loop separates conceptual policy from numerical realization through expert-derived conceptual scaffolding, enabling principled diagnosis, reformulation, and repair of computational strategies. Across scientific computing and scientific machine learning tasks, ATHENA autonomously discovers exact analytical solutions, constructs stable numerical solvers, diagnoses ill-posed formulations, and orchestrates hybrid symbolic–numeric workflows. Quantitatively, ATHENA exceeds expert-designed workflows, achieving superhuman accuracy and robustness on canonical benchmarks. By reframing computation as an object of agentic reasoning, the framework enables autonomous orchestration of heterogeneous algorithms across scientific domains.
 
 
+# Use a coding agent (highly encouraged)
+
+**We highly encourage running ATHENA through an external agentic platform, such as
+[Claude Code](https://claude.com/claude-code) or [Codex](https://openai.com/codex), to ensure a
+proper installation.** The repository ships a `CLAUDE.md` (read by Claude Code; `AGENTS.md` is the
+same file for Codex and other agents) that takes the agent through the whole workflow:
+
+1. **Install.** It checks Apptainer, the GPU and the cluster, gets the container image, checks that
+   your API keys are set (you fill in `crunch_llm/code/.env` yourself; the agent never reads the
+   values), and runs a test script in each language inside the container.
+2. **Formalize.** It acts as ATHENA's Conceptualization Team, following the same Coordinator and
+   Gatekeeper instructions as `Formalize.py`: it asks about your problem one question at a time,
+   proposes the families (A, B, C, or a hybrid), and, once you approve the specification, writes
+   the request JSON.
+3. **Run.** It launches the request in the container and monitors it.
+4. **Report.** It tells you how the run ended, where the best trial and its figures are, and what
+   to do if the run stopped and asked for help.
+
+Open the agent in the repository root and ask, for example, *"Set up ATHENA on this machine"* or
+*"I want to solve the 2D Helmholtz equation with ATHENA"*. The manual steps below are what the
+agent does; you can also follow them yourself.
+
+> **Scope:** the agent drives ATHENA; it does not replace it. Choosing the method and writing,
+> debugging and judging the code remain the work of ATHENA's own agents. Results are reproduced
+> from the request JSONs, `run_athena.py`, the container and the logged transcripts, not from
+> decisions the coding agent makes mid-run.
+
+
 # Installation
 
-ATHENA is an agentic framework that orchestrates workflows across three distinct computational environments: **Python (PyTorch)**, **JAX**, and **Julia**.
+ATHENA's agents write code in three environments: Python with JAX for the PINN and operator
+codes (families **B** and **C**), Julia for the numerical solvers (family **A**), and Python for
+the orchestrator itself. All three ship in **one Apptainer container**, and the container is the
+default execution environment: every generated code runs inside it, whether you launch a run with
+`athena_box_run.sh` or with `run_athena.py`. The container fixes every package version, hides
+your API keys from the generated code, lets that code write only to its run folder, and takes
+only the GPU driver from the host, so the same environment runs on any machine with Apptainer.
 
-Please follow the steps below to set up each environment.
+| Inside the container | Version |
+|---|---|
+| Julia + frozen project (`container/julia/`) | Julia 1.11.9, Trixi.jl 0.13.15, OrdinaryDiffEq, Gridap, StartUpDG |
+| Python for the generated PINN / operator codes | Python 3.12.12, JAX 0.8.2 (CUDA 12), Flax, Optax, NABLA (`third_party/NABLA`) |
+| Python for the orchestrator | Python 3.12.12, LangChain 1.2 + LangGraph 1.0, ChromaDB 1.5 |
+| OpenCode (single-agent baselines only) | 1.18.33 |
 
-> **Tip — let Claude Code do the wiring.** This setup has several pieces that must
-> all agree (the two run bridges, `DB_BASE`/`RESULTS_BASE`, the Ollama backend, the
-> Chroma DB paths, API keys). The fastest way to get it running on a new machine is to
-> hand the whole pre-flight to a coding agent that reads `CLAUDE.md` — see
-> [Recommended: drive setup, launch & monitoring with Claude Code](#recommended-drive-setup-launch--monitoring-with-claude-code).
-
-## 1. Primary Environment (Python + PyTorch)
-This is the main agentic environment (ATHENA).
-
-1.  **Clone the Repository:**
-    ```bash
-    git clone [https://github.com/your-username/ATHENA.git](https://github.com/your-username/ATHENA.git)
-    cd ATHENA
-    ```
-
-2.  **Create and Activate a Virtual Environment:**
-    ```bash
-    # Using Conda (Recommended)
-    conda create -n athena_env python=3.12
-    conda activate athena_env
-    ```
-
-3.  **Install PyTorch:**
-    Install the version of PyTorch compatible with your CUDA version (see [pytorch.org](https://pytorch.org/get-started/locally/)). The pinned environment uses CUDA 12.6.
-    ```bash
-    # Example for CUDA 12.6
-    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu126
-    ```
-
-4.  **Install ATHENA (Editable Mode):**
-    This installs the `crunch_llm` package and its dependencies (LangChain 1.x + LangGraph, on which the agent layer depends).
-    ```bash
-    pip install -e .
-    ```
-
-    For an exact, reproducible environment, install the pinned lockfile instead of (or after) the editable install:
-    ```bash
-    pip install -r requirements.txt
-    pip install -e . --no-deps
-    ```
-    > **Note:** The agent layer (`crunch_llm/code/agents.py`) is built on the modern `langchain.agents.create_agent` API, which requires **`langchain>=1.0` and `langgraph`**. Older `langchain` 0.3.x installs (which only provide `AgentExecutor`/`create_tool_calling_agent`) will not work.
-
-
-5.  **Configure API Keys:**
-    You must set up your LLM provider keys. A template file is provided in the source code.
-
-    a. Navigate to the code directory:
-    ```bash
-    cd crunch_llm/code
-    ```
-
-    b. Create the `.env` file from the template:
-    ```bash
-    cp .env_template .env
-    ```
-
-    c. Open `.env` and paste your API keys:
-    ```bash
-    GOOGLE_API_KEY="YOUR_GOOGLE_KEY"
-    OPENAI_API_KEY="YOUR_OPENAI_KEY"
-    ANTHROPIC_API_KEY="YOUR_ANTHROPIC_KEY"
-    XAI_API_KEY="YOUR_XAI_KEY"
-    ```
----
-
-## 2. JAX Environment (NABLA-SciML)
-The JAX environment handles specific differentiation and optimization tasks using `NABLA-SciML` and `SSBroyden`.
-
-### Setup Instructions (Required for PIML)
-
-1.  **Clone the repository:**
-    ```bash
-    git clone [https://github.com/jdtoscano94/NABLA-SciML.git](https://github.com/jdtoscano94/NABLA-SciML.git)
-    cd NABLA-SciML
-    ```
-
-2.  **Create and activate a virtual environment (Recommended):**
-    ```bash
-    conda create -n nabla_env python=3.10
-    conda activate nabla_env
-    ```
-
-3.  **Install JAX with GPU support:**
-    *(This is required for all modules. We recommend installing it explicitly first to ensure CUDA support)*
-    ```bash
-    pip install -U "jax[cuda12]"
-    ```
-
-4.  **Install the NABLA package:**
-    This installs the library in editable mode, which is necessary to import the PIML models.
-    ```bash
-    pip install -e .
-    ```
-
----
-
-## 3. Julia Environment
-High-performance numerical solvers are executed in Julia. You need to create an environment with `Trixi`, `StartUpDG`, `Gridap`, and `NPZ`.
-
-1.  **Install Julia:**
-    Download and install Julia from [julialang.org](https://julialang.org/downloads/).
-
-2.  **Setup the Environment:**
-    Open the Julia REPL and run the following commands to create a dedicated environment and install the required packages:
-
-    ```julia
-    using Pkg
-
-    # 1. Activate a new environment (creates a folder named 'athena_julia_env')
-    Pkg.activate("athena_julia_env")
-
-    # 2. Add the required packages
-    Pkg.add([
-        "Trixi",
-        "StartUpDG",
-        "Gridap",
-        "NPZ"
-    ])
-
-    # 3. Precompile dependencies
-    Pkg.instantiate()
-    ```
-
-
-## 4. Connecting Environments
-
-To enable ATHENA to control the external solvers, you must configure the bridge scripts to point to your specific installations.
-
-### Julia Connection (`run_julia.sh`)
-
-Navigate to the script located at:
-`ATHENA/Documents/Scripts/run_julia.sh`
-
-Open this file and modify the **Configuration** section to match your system paths.
-
-**What to change:**
-1.  **`JULIA_EXEC`**: Ensure this finds your `julia` executable (or load your module).
-2.  **`PROJECT_ENV`**: Set this to the absolute path of the `athena_julia_env` folder you created in Step 3.
-
-**Example `run_julia.sh` configuration:**
+## 1. Clone the repository
 
 ```bash
-#!/bin/bash
-
-# --- Configuration ---
-# 1. Load your system module (if on HPC) or ensure julia is in PATH
-# module load julia/1.12.4s-adme
-
-# 2. Dynamically grab the path to the executable
-JULIA_EXEC=$(which julia)
-
-# 3. SET THIS PATH: The location of the Julia environment you created in Step 3
-# Example: PROJECT_ENV="/home/username/athena_julia_env"
-PROJECT_ENV="/users/your_name/data/athena_julia_env"
-
-# --- Safety ---
-set -e
-# ... (rest of script) ...
+git clone https://github.com/jdtoscano94/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms.git ATHENA
+cd ATHENA
 ```
 
-### Python / JAX Connection (`run_python.sh`)
+## 2. Get the container image
 
-Navigate to the script located at:
-`ATHENA/Documents/Scripts/run_python.sh`
-
-This is the bridge ATHENA uses for **all Python code** — PINNs, DeepONets, and the JAX/NABLA-SciML (vRBA / SSBroyden) path. Open this file and modify the **Configuration** section so ATHENA can activate the correct Python/JAX environment.
-
-**What to change:**
-1.  **`CONDA_ACTIVATION_SCRIPT`**: The path to your system's `conda.sh` file. This is required to activate environments from within a script.
-2.  **`CONDA_ENV_NAME`**: The name of the environment you created in Section 2 (e.g., `nabla_env`).
-
-**Example `run_python.sh` configuration:**
+Build it from the definition in `container/` (about 1 to 2 hours; needs Apptainer with
+`--fakeroot` and about 60 GB of local scratch):
 
 ```bash
-#!/bin/bash
-
-# --- Configuration ---
-# 1. Path to your conda activation script (Check your ~/.bashrc or system paths)
-# Example: "/gpfs/runtime/opt/anaconda/etc/profile.d/conda.sh"
-CONDA_ACTIVATION_SCRIPT="/path/to/your/anaconda3/etc/profile.d/conda.sh"
-
-# 2. Name of the JAX environment created in Section 2
-CONDA_ENV_NAME="nabla_env"
-
-# --- Safety ---
-set -e
-
-# ... (rest of script) ...
-# The script will verify the paths, activate the environment, and execute the Python code.
+sbatch container/build_release.sh     # on a SLURM cluster, from the repository root
+bash   container/build_release.sh     # on any machine with apptainer
 ```
+
+The image is written to `container/images/athena_release.sif` together with its `sha256`
+(a built image is never overwritten). The image used for the paper has sha256
+`7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7`
+[download link to be added]. See `container/README.md` for details.
+
+## 3. Configure the API keys
+
+```bash
+cp crunch_llm/code/.env_template crunch_llm/code/.env
+```
+
+Fill in the keys you use. `.env` is gitignored and stays on your machine; the launch scripts read
+it on the host and pass the keys only to the orchestrator, never to the generated code.
+
+| Key | Needed for |
+|---|---|
+| `OLLAMA_API` | the open-weight roles (e.g. `gpt-oss:120b`) and the open team, served by Ollama Cloud |
+| `GOOGLE_API_KEY` | Gemini agents and the retrieval embeddings (`gemini-embedding-001`) |
+| `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `XAI_API_KEY` | agents on those providers |
+| `CLAUDE_CODE_OAUTH_TOKEN` | only the Claude Code baseline (`bare_agent_run.sh`) |
+
+## 4. Check the setup
+
+Each bridge runs one generated script inside the container. A one-line test in each language
+should print its output and exit cleanly:
+
+```bash
+mkdir -p Results/Tests/bridge && cd Results/Tests/bridge
+echo 'import jax; print("python OK", jax.devices())' > toy.py
+echo 'println("julia OK")' > toy.jl
+bash ../../../Documents/Scripts/run_python.sh toy.py toy.py.err
+bash ../../../Documents/Scripts/run_julia.sh  toy.jl toy.jl.err
+```
+
+On a GPU node the first line prints `python OK [CudaDevice(id=0)]`.
+
+# Running ATHENA
+
+There are two ways to launch a run. Both execute the generated code inside the container.
+
+**A. One run in one box: `athena_box_run.sh` (recommended).** The orchestrator, the agents and
+the generated code all run inside the container. The repository is visible read-only, and the
+run folder is the only writable place, so everything a run produces lives in one folder:
+
+```bash
+bash Documents/Scripts/athena_box_run.sh \
+    Conceptualization_team/ATHENA_Request_Helmholtz_PINN.json original Results/MyRuns/Helmholtz/run1
+```
+
+```
+Results/MyRuns/Helmholtz/run1/
+  job_info.txt   node, GPU, start/end, git commit, image sha256, exit code
+  stdout.txt     the full console output
+  logs/          agent transcripts
+  usage/         token and time log (one record per LLM call and code execution)
+  dbs/           private copies of the vector DBs this run used
+  results/       generated code, outputs and Experiment_Report.md per iteration
+  box/           the box's home and writable Julia depot
+```
+
+A run folder inside the repository must be under `Results/`, and an existing run is never
+overwritten (continue it with `--resume`). On a SLURM cluster, submit the same command as a batch
+job; `Documents/Scripts/sensitivity_run.sbatch` is a worked example (adapt its `#SBATCH` lines to
+your cluster).
+
+**B. `run_athena.py` directly.** The orchestrator runs in a Python environment of your own (see
+[Running the orchestrator outside the container](#running-the-orchestrator-outside-the-container)),
+and each generated code still runs inside the container through the bridges:
+
+```bash
+python run_athena.py Conceptualization_team/ATHENA_Request_Helmholtz_PINN.json
+```
+
+Outside the box, the `gpt-oss:120b` roles of the original team call a local Ollama server unless
+you set `ATHENA_OLLAMA_CLOUD_ONLY=1`, which serves them through Ollama Cloud instead (the box
+sets this for you).
+
+## Options of `run_athena.py`
+
+`athena_box_run.sh` passes any extra option through to `run_athena.py`.
+
+| Option | Effect |
+|---|---|
+| `--team T` | agent team: `original` (the published team, default, families A, B and C), `open` (open-weight models on Ollama Cloud, families A and B) or `closed` (original team with its utility roles on Gemini 3.1 Pro, families A and B) |
+| `--runs N` | repeat the whole pipeline `N` times (regret / variance analysis) |
+| `--max-iters N` | cap the HENA loop at `N` iterations per stage (quick test) |
+| `--stage N` | run only pipeline stage `N` |
+| `--resume DIR` | continue from the newest `Experiment_Report.md` at or under `DIR` (needs `--stage` for multi-stage requests) |
+| `--results-dir`, `--log-base`, `--usage-dir`, `--db-copy-dir` | where results, transcripts and usage logs go, and a folder for private copies of the vector DBs (set by `athena_box_run.sh`) |
+
+## When a run stops
+
+A run ends in one of four ways:
+
+* **Approved.** The Advisor approves a trial.
+* **Score gate** (families A and B). Once a trial scores at least 90, the run continues until
+  five iterations have run counting from that trial (crashed iterations included), then stops
+  and returns the best-scoring trial.
+* **Iteration limit.** `max_iterations_all` (50, 25 and 100 for families A, B and C) is reached.
+* **Help needed.** The Debugger classifies an error as unrecoverable: a missing package, a
+  broken environment or an invalid input. The agents are told never to modify the environment,
+  so the run stops, writes `UNRECOVERABLE_ERROR.md` in the project folder with the diagnosis,
+  and prints the exact command that resumes it from the last checkpoint once the problem is
+  fixed (for a box run, the `athena_box_run.sh ... --resume ...` command).
+
+## Running the orchestrator outside the container
+
+Only needed for option B. Create a Python 3.12 environment with the orchestrator's packages:
+
+```bash
+conda create -n athena_env python=3.12 && conda activate athena_env
+pip install -r requirements.txt
+pip install -e . --no-deps
+```
+
+> **Note:** the agent layer (`crunch_llm/code/agents.py`) is built on the
+> `langchain.agents.create_agent` API, which requires `langchain>=1.0` and `langgraph`.
+
+## Running the generated code on the host (advanced)
+
+`ATHENA_EXEC=host` makes the bridges run the generated code on the host instead of in the
+container. The host environments must then match the container's:
+
+* **Python / JAX** (`run_python.sh`): a conda env with
+  `pip install -r container/requirements_nabla_jax.txt && pip install --no-deps third_party/NABLA`.
+  Set `ATHENA_CONDA_ENV` (default `NABLA_JAX`) and, if `conda` is not on your `PATH`,
+  `ATHENA_CONDA_SH` (the path to `conda.sh`).
+* **Julia** (`run_julia.sh`): Julia 1.11.9 and the frozen project,
+  `julia --project=container/julia -e 'using Pkg; Pkg.instantiate()'`.
+  Set `ATHENA_JULIA_ENV=$PWD/container/julia` and, if `julia` is not on your `PATH`,
+  `ATHENA_JULIA_EXEC`.
+
+In host mode the generated code shares your environment, so the isolation of the container
+(read-only packages, no access to the keys or the repository) no longer applies.
 
 # Configuring the Models
 
@@ -209,9 +209,10 @@ Every agent in ATHENA is provider-agnostic: it is created with a `model` name an
 LLM an agent uses simply by editing those two arguments.
 
 **Supported providers** (the `model_provider` value): `google`, `openai`, `anthropic`
-(alias `claude`), `xai` (alias `grok`), and `ollama` (local). Each provider reads its key
+(alias `claude`), `xai` (alias `grok`), `ollama_cloud` (Ollama Cloud) and `ollama` (a local
+Ollama server, or Ollama Cloud when `ATHENA_OLLAMA_CLOUD_ONLY=1`). Each provider reads its key
 from `crunch_llm/code/.env` (`GOOGLE_API_KEY`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`,
-`XAI_API_KEY`); `ollama` needs a local Ollama server instead of a key.
+`XAI_API_KEY`, `OLLAMA_API`).
 
 **Changing an agent's model.** Anywhere an agent is constructed (in a notebook or script),
 set the two arguments:
@@ -219,7 +220,7 @@ set the two arguments:
 ```python
 agent = StructuredAgent(
     model='gemini-3-flash-preview',   # any model id valid for the provider
-    model_provider='google',          # google | openai | anthropic | grok | ollama
+    model_provider='google',          # google | openai | anthropic | grok | ollama_cloud | ollama
     system_prompt=...,
 )
 ```
@@ -244,100 +245,20 @@ StructuredAgent(model='gpt-5.1',                 model_provider='openai', ...)
 > incompatible vector dimensions). If you change the embedding model, re-ingest the
 > affected databases.
 
-The defaults shipped in `crunch_llm/code/HENA.py` (the `build_agents_*` factories) are:
 
-| Role | Default | Provider |
+The teams shipped in `crunch_llm/code/HENA.py` (the `build_agents_*` factories, selected with
+`--team`) are:
+
+| Team | Generation models | Embeddings |
 |---|---|---|
-| Generation agents (strategist, retriever, planner, patcher, inspector, debugger, advisor, …) | `gpt-oss:120b` | `ollama` (local) |
-| Embeddings | `models/gemini-embedding-001` (3072-dim) | `google` |
+| `original` (published) | Gemini, GPT, Claude and Grok in the reasoning roles; `gpt-oss:120b` in the utility roles (retriever, parsers, patcher, naming) | `models/gemini-embedding-001` (`google`) |
+| `open` | open-weight models on Ollama Cloud (`OPEN_TEAM` in `HENA.py`) | same |
+| `closed` | the original team with its `gpt-oss:120b` roles on Gemini 3.1 Pro | same |
 
-So **a running Ollama server is required** for the default configuration (only the embeddings
-run on a cloud API). Start it **before any run**:
-
-```bash
-module load ollama          # on HPC clusters that provide it (e.g. Oscar / Brown); skip elsewhere
-ollama serve &              # start the server; leave it running (listens on 127.0.0.1:11434)
-ollama pull gpt-oss:120b    # one-time: fetch the model the default agents use
-ollama list                 # verify the server responds and the model is present
-```
-
-> **No local GPU?** `gpt-oss:120b` needs a GPU-backed Ollama server, but you don't have to use
-> it — the agents are provider-agnostic, so this is an easy swap. Point the generation agents at
-> **any provider** — Gemini (`model='gemini-3-flash-preview'`, `model_provider='google'`),
-> ChatGPT/OpenAI (`model_provider='openai'`), Anthropic (`'claude'`), or Grok (`'grok'`) — by
-> editing `model` / `model_provider` in the `build_agents_*` factories in `HENA.py`. The
-> embeddings already run on a cloud API, so an all-cloud setup needs no GPU and no Ollama at all.
-
-
-# Preparing the Run Scripts (pre-flight)
-
-ATHENA does not execute generated code in-process — it shells out to two bridge
-scripts that activate your environments and run the code. **Before running the
-Tutorial, update these two scripts to match your machine.** If you cloned this repo
-you already have them; you just need to edit the paths.
-
-Both live in `Documents/Scripts/`:
-
-| Script | Used for | Fields to set |
-|---|---|---|
-| `run_python.sh` | All Python: PINNs (**B**), DeepONets (**C**), JAX/NABLA-SciML | `CONDA_ACTIVATION_SCRIPT` (your `conda.sh`), `CONDA_ENV_NAME` (your JAX/PINN env) |
-| `run_julia.sh` | Julia numerical solvers (**A**, SciC) | `JULIA_EXEC` (your `julia` binary), `PROJECT_ENV` (your Julia project dir) |
-
-```bash
-# Documents/Scripts/run_python.sh
-CONDA_ACTIVATION_SCRIPT="/path/to/anaconda3/etc/profile.d/conda.sh"
-CONDA_ENV_NAME="NABLA_JAX"          # the env from Installation Section 2
-
-# Documents/Scripts/run_julia.sh
-JULIA_EXEC="/path/to/.juliaup/bin/julia"   # or $(which julia)
-PROJECT_ENV="/path/to/Learning_Julia"      # the project from Installation Section 3
-```
-
-> **Note:** you no longer need to edit any absolute path inside `crunch_llm/code/utils.py`.
-> `run_code()` now resolves both scripts **relative to the repo** (`<repo>/Documents/Scripts/`),
-> so only the two script bodies above are machine-specific.
-
-**Verify the bridges before launching a run.** Drop a one-line script in each language
-and execute it through `run_code()`; both should exit cleanly and write a `.out` log:
-
-```python
-import os
-import crunch_llm.code.utils as U
-
-d = os.path.abspath("scratch/bridge_test"); os.makedirs(d, exist_ok=True)
-open(f"{d}/toy.py", "w").write("import jax; print('python OK', jax.devices())")
-open(f"{d}/toy.jl", "w").write('println("julia OK")')
-
-for fn in ("toy.py", "toy.jl"):
-    ok, log = U.run_code(d, fn, f"{d}/{fn}")
-    print(fn, "->", ok); print(open(log).read())
-```
-
-A healthy result prints `python OK [CudaDevice(id=0)]` and `julia OK` with empty
-`.err` files. If a run fails to launch, this is the first place to look (it is the
-most common setup issue — see the path table above).
-
-
-## Recommended: drive setup, launch & monitoring with Claude Code
-
-This repo ships a `CLAUDE.md` that gives [Claude Code](https://claude.com/claude-code)
-(or any coding agent) full project context. The numerical core is deterministic and works
-as-is, but **getting it running on a new machine means making several moving parts agree at
-once** — the two run bridges (`run_python.sh`, `run_julia.sh`), `DB_BASE`/`RESULTS_BASE` in
-`HENA.py`, the four Chroma DB paths/collections, the Ollama backend for the local agents, and
-the API keys in `crunch_llm/code/.env`. Any one of these silently mismatched fails deep inside
-the HENA loop, not at startup. An agent that reads `CLAUDE.md` is the fastest way through this:
-it can point the bridges at your conda env / Julia project, line up the DB and Results paths,
-start Ollama, launch `run_athena.py`, tail the per-run logs, and surface crashes in real time.
-This is the manual, machine-specific friction, so the agent is where it earns its keep —
-**operational reproducibility** (getting it running on a new machine).
-
-> **Scope:** the agent is a convenience for setup and running — **not** the experiment runner.
-> Scientific reproducibility comes from the deterministic core: the pinned
-> `Conceptualization_team/ATHENA_Request_*.json` specs, `run_athena.py`, and the logged
-> transcripts under `crunch_llm/code/HENA_logs/`. Treat the agent as the driver of those
-> artifacts, not a substitute for them — results are reproduced from the scripts and logs,
-> not from any ad-hoc decisions the agent makes mid-run.
+The `gpt-oss:120b` roles use `model_provider='ollama'`. Inside the box they are served by
+Ollama Cloud (`ATHENA_OLLAMA_CLOUD_ONLY=1`), so no local model server or GPU is needed for the
+agents; outside the box, set the same variable or start a local Ollama server
+(`ollama serve`, `ollama pull gpt-oss:120b`).
 
 
 # Tutorial
@@ -436,10 +357,15 @@ splitter rely on that structure.
 
 ## Step 2 — Setting up New Problems (Running the Conceptualization Team)
 
-To set up a new scientific problem through an interactive dialogue with ATHENA, run the formalization script:
+**With a coding agent (recommended),** just describe your problem: following `CLAUDE.md`, the
+agent plays the Coordinator and the Gatekeeper below with the same instructions
+(`crunch_llm/code/teams_conceptualization.py`), writes the request JSON once you approve the
+specification, and records the conversation in `Conceptualization_team/Formalization_logs/`.
+
+**Without one,** run the formalization script, which plays the same two roles with its own models:
 
 ```bash
-python Conceptualization_team/Formalize.py
+cd Conceptualization_team && python Formalize.py
 ```
 
 This script initiates a conversational agent that will guide you through defining your problem statement.
@@ -451,7 +377,7 @@ This script initiates a conversational agent that will guide you through definin
 **Non-interactive (batch) mode.** If you already have a complete problem description in a text file, you can skip the chat and generate the JSON in one shot:
 
 ```bash
-python Conceptualization_team/Formalize.py --request-file my_problem.txt
+cd Conceptualization_team && python Formalize.py --request-file my_problem.txt
 ```
 
 ### (Optional) Skipping the Conceptualization Team
@@ -509,17 +435,19 @@ There are **two ways to run a problem**, suited to different situations:
 
 ### Reference data
 
-Most examples are self-contained (they generate their own reference). Three
-data-driven examples load an external file from `Documents/codes/Data/`:
+Most examples are self-contained (they generate their own reference). The data-driven examples
+load a file from `Documents/codes/Data/`, which the bridges mount read-only inside the container:
 
 | Example | File | Size | Where it comes from |
 |---|---|---|---|
 | `Allen_Cahn_PINN` | `allen_cahn.mat` | 1.8 MB | included in the repo |
+| `1D_Viscous_Burgers_PINN_BareProblem` | `burgers.mat` | 15 MB | included in the repo |
+| `Inviscid_Burgers_PINN` | `inviscid_burgers_sinpix.npz` | 0.4 MB | included in the repo |
 | `Inverse_2D_NavierStokes_…_ReInference` | `ldc_Re500.npz` | 3.0 MB | included in the repo |
 | `Viscous_Burgers_DeepONet` | `Burger_1000_5000.mat` | 374 MB | **download from [Google Drive](https://drive.google.com/file/d/1Tr6a22SiMpgUlzbIHiBFAt8DRGXQ30E6/view)** into `Documents/codes/Data/` (too large for git) |
 
-The request JSONs reference these by absolute path under
-`Documents/codes/Data/`; adjust if you relocate the repo.
+The request JSONs name these files as `{REPO}/Documents/codes/Data/<file>`; `run_athena.py`
+replaces `{REPO}` with the repository root, so the requests work wherever the repo is cloned.
 
 ### How `run_athena.py` works
 
@@ -532,18 +460,15 @@ case — you point the script at the JSON:
 python run_athena.py Conceptualization_team/ATHENA_Request_<name>.json
 ```
 
-Optional flags:
-
-| Flag | Effect |
-|------|--------|
-| `--runs N`    | Repeat the whole pipeline `N` times (for regret / variance analysis). |
-| `--max-iters N` | Cap the HENA loop at `N` iterations per stage (quick smoke test). |
-| `--stage N`   | Run **only** pipeline stage `N` (essential for multi-stage cases — see below). |
+See [Options of `run_athena.py`](#options-of-run_athenapy) for the flags.
 
 Each run writes:
 * generated code, data, and per-iteration reports → `Results/<FAMILY>_codes/<ProjectName>/<timestamp>/`
 * the full multi-agent transcript → `Examples_<family>/<ProblemName>_log.txt`, mirroring the
-  notebook convention: **A → `Examples_NM`**, **B → `Examples_PINNs`**, **C → `Examples_DeepONet`**.
+  notebook convention: **A → `Examples_NM`**, **B → `Examples_PINNs`**, **C → `Examples_DeepONet`**
+* a token and time usage log → `run_logs/usage/`
+
+A box run (`athena_box_run.sh`) writes all of these into its own run folder instead.
 
 > **Family-A analytical cases.** Family A covers both numerical-validation problems
 > (`Examples_NM`) and analytical-exact ones (`Examples_analytical_exact`), so its logs default to
@@ -600,20 +525,23 @@ lid-driven-cavity data (`ldc_Re500.npz`, in repo) to infer the Reynolds number
 and the hidden v-field; Stage 2 runs a high-fidelity forward Julia solve at the
 inferred `Re` and validates against the same ground truth.
 
+Run each stage in its own run folder under `Results/`: the generated code of a later stage sees
+earlier runs under `Results/` read-only (in the box and through the bridges alike). The example
+uses `athena_box_run.sh`; with `run_athena.py` the same steps use `--stage 1` and `--stage 2`.
+
 ```bash
+REQ=Conceptualization_team/ATHENA_Request_Inverse_2D_NavierStokes_LidDrivenCavity_ReInference.json
+
 # 1) Run Stage 1 (the inverse PINN). Note the printed project_dir.
-python run_athena.py \
-  Conceptualization_team/ATHENA_Request_Inverse_2D_NavierStokes_LidDrivenCavity_ReInference.json \
-  --stage 1
-#    -> produces Results/PINN_codes/Inverse_NavierStokes_.../<timestamp>/results.npz
+bash Documents/Scripts/athena_box_run.sh $REQ original Results/MyRuns/LDC/stage1 --stage 1
+#    -> produces Results/MyRuns/LDC/stage1/results/<Project>/<timestamp>/results.npz
 
 # 2) Edit the JSON: in the "### STAGE 2" section, set the Stage-1 output path
-#    ("path:" under "The data was saved as:") to that results.npz from step 1.
+#    ("path:" under "The data was saved as:") to that results.npz, written as
+#    {REPO}/Results/MyRuns/LDC/stage1/results/<Project>/<timestamp>/results.npz
 
 # 3) Run Stage 2 (the forward Julia verification at the inferred Re).
-python run_athena.py \
-  Conceptualization_team/ATHENA_Request_Inverse_2D_NavierStokes_LidDrivenCavity_ReInference.json \
-  --stage 2
+bash Documents/Scripts/athena_box_run.sh $REQ original Results/MyRuns/LDC/stage2 --stage 2
 ```
 
 > Running the JSON without `--stage` executes Stage 1 then Stage 2 back-to-back,
@@ -624,10 +552,9 @@ python run_athena.py \
 **`1D_Viscous_Burgers_PINN` — Stage 1 (A) → Stage 2 (B) → Stage 3 (B)**
 
 Generate a high-fidelity numerical reference (A), then train a PINN against it
-(B), then evaluate (B). This spec feeds the full description to each stage, so a
-straight `python run_athena.py …ATHENA_Request_1D_Viscous_Burgers_PINN.json`
-runs all three; if you want the PINN stages to read the exact Stage-1 reference
-file, run `--stage 1` first and point the PINN stages at its `Results/` output.
+(B), then evaluate (B). This spec feeds the full description to each stage, so one box run
+without `--stage` runs all three; if you want the PINN stages to read the exact Stage-1
+reference file, run `--stage 1` first and point the PINN stages at its output, as above.
 
 ### Interactive mode: running the HENA loop directly (the example notebooks)
 
@@ -698,8 +625,16 @@ retrieval), so each figure can be traced to the specific models that generated i
 
 ### Resuming from a checkpoint
 
-Any run can be resumed from a prior `Results/` folder via `run_hena` (which
-`run_athena.py` wraps):
+Every scored iteration writes `Experiment_Report.md` (strategy, Advisor outcome and the full
+trial history) next to its code, and any run can continue from it:
+
+```bash
+python run_athena.py <request.json> --resume Results/<FAMILY>_codes/<Project>/<timestamp>
+bash Documents/Scripts/athena_box_run.sh <request.json> <team> <RUN_DIR> --resume <RUN_DIR>/results
+```
+
+The loop picks up at the next iteration with the earlier trials in its history. In Python,
+`run_hena` takes the same checkpoint:
 
 ```python
 from crunch_llm.code.HENA import run_hena
@@ -733,12 +668,12 @@ The generated script (`.jl`/`.py`) that produced each run folder is also tracked
 so you can regenerate any result from scratch instead of using the stored data:
 
 ```bash
-# Julia (family A) — writes its .npz back into the same folder (uses @__DIR__)
-Documents/Scripts/run_julia.sh  Results/NM_codes/<Project>/<timestamp>/<script>.jl
+# Julia (family A): writes its .npz back into the same folder (uses @__DIR__)
+bash Documents/Scripts/run_julia.sh  Results/NM_codes/<Project>/<timestamp>/<script>.jl  <script>.jl.err
 
-# Python / PINN (families B, C) — run FROM the folder so np.savez lands there
+# Python / PINN (families B, C): run FROM the folder so np.savez lands there
 cd Results/PINN_codes/<Project>/<timestamp> && \
-  /path/to/Documents/Scripts/run_python.sh <script>.py
+  bash <repo>/Documents/Scripts/run_python.sh <script>.py <script>.py.err
 ```
 
 Julia solves are deterministic; the PINN/operator scripts carry a fixed seed
@@ -747,13 +682,10 @@ nondeterminism.
 
 ### A Note on GPU Requirements
 
-The shipped defaults in `HENA.py` run most agents on the local model `gpt-oss:120b` (via an
-Ollama server with significant VRAM requirements), so the default configuration **needs a local
-GPU + Ollama**. The system is equally functional through cloud APIs, though — point any agent at
-a cloud provider and you need **no local GPU**. See
-[**Configuring the Models**](#configuring-the-models) for how to change the `model` /
-`model_provider` of any agent (for example, Gemini on `google`, ChatGPT on `openai`, or
-`grok-4-1-fast-reasoning` on `grok`).
+The generated PINN and operator codes need an NVIDIA GPU (the container uses the host driver
+through `--nv`); the Julia solvers run on CPUs. The agents themselves need no local GPU: every
+model, including `gpt-oss:120b`, is reached through a cloud API (Ollama Cloud inside the box).
+
 
 ### A Note on Auditing the Agent Interaction
 Auditing the full, multi-turn interaction between the agents (Strategist, Advisor,
