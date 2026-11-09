@@ -17,11 +17,11 @@
 # Usage: bare_agent_run.sh <request.json> <harness/model> <RUN_DIR>
 #   harness/model: claude/claude-opus-5-5 (Claude Code, subscription token),
 #                  google/gemini-3.1-pro-preview (OpenCode, Gemini API key) or
-#                  ollama/glm-5.3 (OpenCode, Ollama Cloud: OLLAMA_API in the Open-GRAFT .env,
+#                  ollama/glm-5.3 (OpenCode, Ollama Cloud: OLLAMA_API in crunch_llm/code/.env,
 #                  reasoning effort high and 128k output, as in Open-GRAFT run_agent.sh)
 #   Subagents are allowed in every harness (Claude Code Agent tool, OpenCode task); web and cross-session tools are off.
-#   Claude Code needs a long-lived token from `claude setup-token`: CLAUDE_CODE_OAUTH_TOKEN in the
-#   Open-GRAFT .env (default), or CLAUDE_TOKEN_FILE=<one-line token file>.
+#   Claude Code needs a long-lived token from `claude setup-token`: CLAUDE_CODE_OAUTH_TOKEN in
+#   crunch_llm/code/.env (default; ATHENA_ENV_FILE points elsewhere), or CLAUDE_TOKEN_FILE=<one-line token file>.
 set -u
 REQUEST="$1"; MODEL="$2"; RUN_DIR="$3"
 REPO="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")/../..")"
@@ -40,19 +40,13 @@ mkdir -p "$BOX/final" "$BOX/.box"/{home,julia_depot,xdg_config/opencode,xdg_data
 NCPU="${SLURM_CPUS_PER_TASK:-$(nproc)}"
 if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then HW="$NCPU CPU cores and one NVIDIA GPU"; else HW="$NCPU CPU cores, no GPU"; fi
 
-# --- the prompt: the case's user_request verbatim, its pipeline task, and what the box contains ---
+# --- the prompt: the case's user_request verbatim and what the box contains, nothing else ---
 read_req() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$REQUEST" "$1"; }
 # {REPO} in a request stands for the repository root (input files under Documents/codes/Data)
 USER_REQUEST="$(read_req 'd["user_request"]')"
 USER_REQUEST="${USER_REQUEST//\{REPO\}/$REPO}"
-TASK="$(read_req '"; ".join(s["task"] for s in d.get("pipeline", []))')"
-PATHS="$(read_req '" ".join(s["path"] for s in d.get("pipeline", []))')"
-RULE=""
-case " $PATHS " in *" B "*) RULE=" Train on the PDE and the initial/boundary conditions only; use any analytical or reference solution only to measure the error." ;; esac
 cat > "$RUN_DIR/prompt.md" <<EOF
 You are working on the computational task below. Your working folder is /box; any input file the task names is available read-only at its path.
-
-Required approach: $TASK$RULE
 
 Hardware: $HW.
 

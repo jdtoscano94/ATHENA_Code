@@ -561,8 +561,12 @@ def sens_cost(team, case, r):
 OPUS = ('Opus 5.5', 'green', 'A', '^')
 
 
+# IB2D: the runs whose prompt is the User Request only (bare_claude/IB had the pipeline task label)
+OPUS_DIR = {'IB': 'IB_request_only'}
+
+
 def opus_metric(case, metric, r=1):
-    d = SENS / 'bare_claude' / case / f'run{r}'
+    d = SENS / 'bare_claude' / OPUS_DIR.get(case, case) / f'run{r}'
     if not (d / 'job_info.txt').exists():
         return None
     info = (d / 'job_info.txt').read_text()
