@@ -7,8 +7,9 @@
 #   the script's folder visible and writable (--containall), and the reference data
 #   (Documents/codes/Data) and earlier runs (Results/) visible read-only. A pip install lands in the container's throwaway
 #   home, never in a shared environment.
-# ATHENA_EXEC=host runs with a host conda env instead: ATHENA_CONDA_SH (path to conda.sh; default
-#   from `conda info --base`) and ATHENA_CONDA_ENV (default NABLA_JAX).
+# ATHENA_EXEC=host runs with a host Python env instead: ATHENA_CONDA_ENV is a conda env name
+#   (default NABLA_JAX; ATHENA_CONDA_SH is the path to conda.sh, default from `conda info --base`)
+#   or the path to the env folder (used directly, no conda needed: micromamba, venv).
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ATHENA_EXEC="${ATHENA_EXEC:-container}"
@@ -92,23 +93,30 @@ if [ ! -f "$PYTHON_SCRIPT" ]; then
     exit 1
 fi
 
-if [ ! -f "$CONDA_ACTIVATION_SCRIPT" ]; then
-    echo "Error: conda activation script not found ('$CONDA_ACTIVATION_SCRIPT'); set ATHENA_CONDA_SH" >&2
-    exit 1
-fi
-
 # --- Environment Activation ---
-# (Silently activate)
-source "$CONDA_ACTIVATION_SCRIPT"
-if ! conda activate "$CONDA_ENV_NAME" 2>/dev/null; then
-    # Fallback: activate by hand when the conda binary cannot run (e.g. a shared
-    # install whose bin/conda is not executable).
-    ENV_PREFIX="$HOME/.conda/envs/$CONDA_ENV_NAME"
-    if [ ! -x "$ENV_PREFIX/bin/python" ]; then
-        echo "Error: conda activate failed and no env at $ENV_PREFIX" >&2
-        exit 1
-    fi
-    export CONDA_PREFIX="$ENV_PREFIX" CONDA_DEFAULT_ENV="$CONDA_ENV_NAME"
+# ATHENA_CONDA_ENV is an env name (activated with conda) or a path to the env folder (used
+# directly, no conda needed: micromamba, venv, or a conda whose binary cannot run).
+ENV_PREFIX=""
+case "$CONDA_ENV_NAME" in
+    */*) [ -x "$CONDA_ENV_NAME/bin/python" ] || { echo "Error: no python in $CONDA_ENV_NAME/bin" >&2; exit 1; }
+         ENV_PREFIX="$(readlink -f "$CONDA_ENV_NAME")" ;;
+    *)   if [ ! -f "$CONDA_ACTIVATION_SCRIPT" ]; then
+             echo "Error: conda activation script not found ('$CONDA_ACTIVATION_SCRIPT'); set ATHENA_CONDA_SH, or set ATHENA_CONDA_ENV to the env's path" >&2
+             exit 1
+         fi
+         source "$CONDA_ACTIVATION_SCRIPT"
+         if ! conda activate "$CONDA_ENV_NAME" 2>/dev/null; then
+             # Fallback: activate by hand when the conda binary cannot run (e.g. a shared
+             # install whose bin/conda is not executable).
+             ENV_PREFIX="$HOME/.conda/envs/$CONDA_ENV_NAME"
+             if [ ! -x "$ENV_PREFIX/bin/python" ]; then
+                 echo "Error: conda activate failed and no env at $ENV_PREFIX" >&2
+                 exit 1
+             fi
+         fi ;;
+esac
+if [ -n "$ENV_PREFIX" ]; then
+    export CONDA_PREFIX="$ENV_PREFIX" CONDA_DEFAULT_ENV="$(basename "$ENV_PREFIX")"
     export PATH="$ENV_PREFIX/bin:$PATH"
     set +e
     for _hook in "$ENV_PREFIX"/etc/conda/activate.d/*.sh; do

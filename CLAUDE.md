@@ -309,7 +309,7 @@ linter or build step for the Python code.
 |---|---|---|
 | in box | `ATHENA_IN_BOX=1` (set by `athena_box_run.sh`) | the image's Python / Julia directly, keys stripped |
 | **container** (default) | `ATHENA_EXEC` unset or `container` | `apptainer exec --containall --cleanenv` (Python adds `--nv`): only the script's folder is writable, `Documents/codes/Data` and `Results/` (earlier runs) are mounted read-only, the rest of the repository is invisible, Julia gets a per-job writable depot in front of the image's read-only one |
-| host | `ATHENA_EXEC=host` (only on request; install: README, "Installing without the container") | Python: `ATHENA_CONDA_ENV` (default `NABLA_JAX`), `ATHENA_CONDA_SH` (path to `conda.sh`, default from `conda info --base`). Julia: `ATHENA_JULIA_ENV` (project instantiated from `container/julia/`, required), `ATHENA_JULIA_EXEC` (default `julia` on PATH) |
+| host | `ATHENA_EXEC=host` (only on request; install: README, "Installing without the container") | Python: `ATHENA_CONDA_ENV` (env name, default `NABLA_JAX`, or the env folder's path), `ATHENA_CONDA_SH` (path to `conda.sh`, default from `conda info --base`). Julia: `ATHENA_JULIA_ENV` (project instantiated from `container/julia/`, required), `ATHENA_JULIA_EXEC` (default `julia` on PATH) |
 
 Julia threads come from `SLURM_CPUS_PER_TASK` → `SLURM_CPUS_ON_NODE` → `nproc`. The bridges hold no
 machine-specific paths; do not hardcode any.

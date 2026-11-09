@@ -217,6 +217,10 @@ JULIA_CPU_TARGET='generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)
 export ATHENA_EXEC=host ATHENA_CONDA_ENV=NABLA_JAX ATHENA_JULIA_ENV=$PWD/container/julia
 ```
 
+With micromamba or a plain `venv` instead of conda, create the two envs the same way (Python 3.12,
+the same `pip install` lines) and set `ATHENA_CONDA_ENV` to the path of the `NABLA_JAX` env folder;
+the bridge then uses it directly, with no conda needed.
+
 Check the setup with the bridge test of step 4 under Installation. Then activate `athena_env` and
 launch runs with `run_athena.py` (option B); `athena_box_run.sh` needs the container.
 
