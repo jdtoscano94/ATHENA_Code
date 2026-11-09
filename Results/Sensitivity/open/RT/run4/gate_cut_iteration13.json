@@ -1,0 +1,46 @@
+{
+  "note": "Usage of open RT run 4 truncated where the score gate (first score >=90 at iteration 9, stop 5 iterations later) would have stopped it: end of iteration 13 (Debugger call at 12:34:48). Iteration 14 starts with the Planner call at 12:35:24. Best score up to the cut: 95 (iteration 9).",
+  "cutoff_time": "2026-11-06T12:35:00",
+  "run_start": "2026-11-06T10:40:17",
+  "wall_to_cut": "1h54m31s",
+  "up_to_iteration_13": {
+    "llm_calls": 147,
+    "input_tokens": 1662296,
+    "output_tokens": 712950,
+    "total_tokens": 2375246,
+    "llm_seconds": 5641,
+    "code_runs": 9,
+    "successful_runs": 2,
+    "exec_seconds": 1225
+  },
+  "by_model_up_to_iteration_13": [
+    {
+      "model": "deepseek-v4.1-flash:1017",
+      "calls": 76,
+      "input_tokens": 335659,
+      "output_tokens": 400900
+    },
+    {
+      "model": "glm-5.3",
+      "calls": 4,
+      "input_tokens": 26844,
+      "output_tokens": 48792
+    },
+    {
+      "model": "kimi-k3.1-pro",
+      "calls": 67,
+      "input_tokens": 1299793,
+      "output_tokens": 263258
+    }
+  ],
+  "whole_run_iterations_0_to_41": {
+    "llm_calls": 333,
+    "input_tokens": 4960858,
+    "output_tokens": 2005400,
+    "total_tokens": 6966258,
+    "llm_seconds": 13785,
+    "code_runs": 28,
+    "successful_runs": 3,
+    "exec_seconds": 4931
+  }
+}

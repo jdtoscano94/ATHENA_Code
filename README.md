@@ -664,6 +664,11 @@ display are stored, which keeps each file small; the colorbars are computed from
 those same slices. The DeepONet plot file keeps the test set and training
 diagnostics it plots, dropping the unused training trajectories.
 
+The figures of the model-sensitivity study and the Claude Code (Opus 5.5) baseline are built by
+scripts in `Plots/` (`fig7_sensitivity.py`, `fig_first90_SI.py`, `fig4_pinn_opus.py`, ...) from the
+records of those runs under `Results/Sensitivity/`; [`Plots/README.md`](Plots/README.md) lists
+which script builds which figure.
+
 The generated script (`.jl`/`.py`) that produced each run folder is also tracked,
 so you can regenerate any result from scratch instead of using the stored data:
 

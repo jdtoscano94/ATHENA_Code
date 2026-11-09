@@ -1,0 +1,50 @@
+Equation: Helmholtz
+Name: SS_Broyden
+NC: 200000
+NI: 512
+NB: 512
+NC_TEST: 100
+SEED: 9999
+EPOCHS: 10000
+N_LAYERS: 3
+HIDDEN: 40
+FEATURES: 1
+embedding_degree: 7
+lr_fact: 0.2
+eta: 0.01
+gamma: 0.999
+gamma_bfgs: 0.1
+gamma_grads: 0.99
+alpha: 0.999
+cap_RBA: 20
+max_RBA: None
+decay_rate: 0.9
+LR: 0.001
+decay_step: 5000
+Note: 
+batch_size: 20000
+k_samp: 1.0
+c_samp: 0.0
+phi: 1
+c_log: 1.0
+N_change: 100
+SS_BroydenvRBA-phi:1.00-c_log:1.00-bs:20000_k:1.00_N:100.00_Seed:9999
+(40, 40, 40, 1)
+4481
+Runtime: 2.24 ms/iter.
+RL2 error: 0.00168009
+Solution:
+RL2 error: 0.00168009
+Reconstructed parameters: RL2 error: 0.00168009
+Solution:
+Calculating PDE residuals for plotting...
+Residuals calculated. Min: 1.5447199075424578e-11, Max: 8.007721703506832e-07
+Final-iteration RL2 error: 4.8720731501001599e-09
+Best-ever minimum RL2 error (isolated dip; not convergence evidence): 1.3307463260074361e-09
+Sustained dual-curve plateau reached: True
+Final-stage plateau diagnostics (trailing 50%, split into halves):
+  Loss band centers (early/late): 6.381202e-14 / 4.057348e-14
+  RL2 band centers (early/late): 9.041793e-09 / 8.236900e-09
+  Loss band-center change factor: 1.573
+  RL2 band-center change factor: 1.098
+Convergence judgment: sustained loss and RL2 plateau confirmed; neither optimizer termination nor an isolated RL2 dip was used as convergence evidence.

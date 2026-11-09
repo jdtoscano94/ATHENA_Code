@@ -1,0 +1,6 @@
+hidden: 443 examples/docs/test folders of the Julia packages
+job=8578103 node=gpu2105.oscar.ccv.brown.edu cpus=16 gpu=none start=2026-11-08T00:47:22-05:00
+request=Conceptualization_team/ATHENA_Request_Inviscid_Burgers_2D.json model=claude/claude-opus-5-5 harness=claude-code 2.1.319 box=/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/container/images/athena_release.sif
+image_sha256=7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7
+git=248350e branch=model-sensitivity
+exit=0 end=2026-11-08T00:54:42-05:00

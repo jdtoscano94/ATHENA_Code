@@ -1,0 +1,1116 @@
+
+======================================================================
+ATHENA :: Inviscid_Burgers_2D
+======================================================================
+
+--- Stage 1 (family A): Numerical solution and validation (SciC). ---
+[db] db_path: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/database_NM -> /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/dbs/database_NM
+[db] db_functions: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/database_Modules_ollama -> /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/dbs/database_Modules_ollama
+[db] db_functions_ollama: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/database_Modules_ollama -> /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/dbs/database_Modules_ollama
+[usage] tracking roles: strategist_agent=glm-5.3, critic_agent=kimi-k3.1-pro, retriever_agent=deepseek-v4.1-flash:1017, retriever_agent.embeddings=models/gemini-embedding-001, validator_agent=glm-5.3, planner_agent=kimi-k3.1-pro, planner_parser_agent=deepseek-v4.1-flash:1017, patcher_agent=deepseek-v4.1-flash:1017, inspector_agent=deepseek-v4.1-flash:1017, naming_agent=deepseek-v4.1-flash:1017, debugger_agent=kimi-k3.1-pro, advisor_agent=kimi-k3.1-pro, advisor_agent.embeddings=models/gemini-embedding-001, advisor_parser=deepseek-v4.1-flash:1017, register_agent_parser=deepseek-v4.1-flash:1017
+[HENA] family=A | logging to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/logs/A_SciC/hena_A_Inviscid_Burgers_2D_stage1_20261106_014601.txt
+--- Starting a new run (no resume directory specified). ---
+
+
+--- Code Creation Iteration: 0 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- 1. Calling Strategist Team ---
+
+=== 🧠 Starting Strategy Team (Proposer-Critic Loop) ===
+
+--- 🔄 Strategy Iteration 1/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**
+Scalar 2D inviscid Burgers' equation (hyperbolic conservation law) on the doubly periodic square $[0,4\pi]^2$ for $t\in[0,2]$, with diagonal sinusoidal initial data. The IC depends only on $x+y$; the profile steepens and forms two diagonal shocks at $t_b = 3/2$. An exact entropy solution is derivable via Method of Characteristics — it will be generated as perfect Ground Truth. Snapshots at several timesteps must be saved to `summary_all.png`.
+
+**1. Mathematical Specification (Code-Ready Extraction)**
+* **Governing Equations:**
+$$\frac{\partial u}{\partial t} + \frac{\partial}{\partial x}\!\left(\frac{u^2}{2}\right) + \frac{\partial}{\partial y}\!\left(\frac{u^2}{2}\right) = 0 \qquad \text{on } (x,y)\in[0,4\pi]^2,\; t\in[0,2]$$
+(equivalently $\partial_t u + u\,(\partial_x u + \partial_y u)=0$; scalar, hyperbolic; fluxes $f_x(u)=f_y(u)=u^2/2$).
+* **Domain:** $(x,y)\in[0,4\pi]\times[0,4\pi]$, $t\in[0,2]$.
+* **Boundary Conditions:** $x\in\{0,4\pi\}$: Periodic; $y\in\{0,4\pi\}$: Periodic.
+* **Initial Conditions:**
+$$u(x,y,0) = \frac{1}{3} + \frac{2}{3}\sin\!\left(\frac{x+y}{2}\right)$$
+* **Constants & Parameters:** IC mean $\bar u = 1/3$ (conserved), amplitude $2/3$; reduced 1D characteristic speed $a(U)=2U$, flux $f(U)=U^2$ in $s=x+y$; breaking time $t_b = 3/2$; post-shock trajectory $s^*(t)=2\pi+\frac{2t}{3}$ (and $6\pi+\frac{2t}{3}$), shock speed $2/3$. No $\gamma$, no gravity, no viscosity — none applicable.
+* **Expected Physics:** Solution stays constant along anti-diagonals ($x-y=$ const); all variation along $s=x+y$; remains $4\pi$-periodic in $x$ and $y$. For $t<1.5$: smooth steepening where $\partial_s u_0<0$ (near $s_0=2\pi,\,6\pi$), slope amplifying as $(1-2t/3)^{-1}$. At $t=1.5$: gradient catastrophe (vertical tangent) at $x+y=2\pi+1$ and $6\pi+1$. For $t>1.5$: two entropy shocks (downward jumps, $u_L>u_R$) propagate at exact speed $2/3$ along $x+y=2\pi+\frac{2t}{3}$ and $x+y=6\pi+\frac{2t}{3}$. **Validation checkpoint at $t=2$:** shocks at $x+y\approx 7.6165$ and $20.1829$ with states $u_L\approx 0.9711$, $u_R\approx -0.3044$ (jump $\approx 1.28$).
+
+**2. Strategic Methodology**
+*Physics:* Hyperbolic scalar conservation law → MoC is the highest-priority tool.
+
+*Can we obtain an exact solution? YES — derivation:*
+1. **Exact reduction to 1D.** The IC depends only on $s=x+y$, and the ansatz $u(x,y,t)=U(s,t)$ is preserved by the PDE ($\partial_x u=\partial_y u=U_s$), reducing the 2D problem **exactly** to
+$$U_t + 2UU_s = 0 \;\Longleftrightarrow\; U_t + (U^2)_s = 0,\qquad U_0(s)=\tfrac13+\tfrac23\sin\tfrac{s}{2},$$
+with $U$ $4\pi$-periodic in $s$ — exactly consistent with the 2D periodic BCs (entropy consistency of the reduction is exact, shocks included).
+2. **Characteristics.** $\frac{ds}{dt}=2U$, $\frac{dU}{dt}=0$ ⇒
+$$s = s_0 + 2t\,U_0(s_0) = s_0 + \frac{2t}{3}\Big(1+2\sin\frac{s_0}{2}\Big),\qquad u = U_0(s_0).$$
+3. **Pre-shock ($t<3/2$).** $F(s_0)=s_0+\frac{2t}{3}(1+2\sin\frac{s_0}{2})-s$ has $F'=1+\frac{2t}{3}\cos\frac{s_0}{2}\ge 1-\frac{2t}{3}>0$: a unique root per $(s,t)$ → exact smooth solution by Newton inversion.
+4. **Breaking time.** $t_b=-1/\min_s[2U_0'(s)]=-1/\min_s[\frac23\cos\frac{s}{2}]=\frac32$, first crossing at $s_0=2\pi$ (and $6\pi$).
+5. **Post-shock ($t>3/2$) — Entropy Condition Root Selection.** The characteristic map becomes multi-valued (up to 3 roots). The implementation **must select the entropy-satisfying branch**: among all roots $\xi_i$ of $s=\xi+2tU_0(\xi)$, choose the minimizer of the Hopf–Lax functional
+$$G(\xi)=\frac{(s-\xi)^2}{4t}+\phi_0(\xi),\qquad \phi_0(\xi)=\int_0^\xi U_0=\frac{\xi}{3}+\frac{4}{3}\Big(1-\cos\frac{\xi}{2}\Big),\qquad u(s,t)=U_0(\xi^*)=\frac{s-\xi^*}{2t}.$$
+This minimization is exactly the Oleinik entropy condition (equal-area rule); shocks emerge with exact Rankine–Hugoniot speeds. The solution is exact for **all** $t\in[0,2]$ — no Gibbs phenomenon, no numerical viscosity.
+6. **Bounded root window.** $U_0\in[-1/3,1]$ ⇒ all roots lie in $\xi\in[s-2t,\;s+\frac{2t}{3}]$ (length $\le 16/3<4\pi$ for $t\le 2$): dense bracketing scan + Newton refinement to machine precision.
+7. **2D reconstruction.** $u(x,y,t)=U(x+y,t)$ evaluated pointwise on the grid — no time stepping required.
+
+MoC derivation succeeded (implicit characteristic equations produced) → **MANDATORY selection as Main Method.** This constitutes perfect Ground Truth for any subsequent numerical benchmarking.
+
+**3. Implementation Requirements (CRITICAL)**
+* **Configuration:** Use template defaults. (Exact solver: no CFL, no time stepper, no N/K.)
+* **Exact solver specification (MoC template):**
+  * For each grid point $(x,y)$ and output time $t>0$: set $s=x+y$; find all roots of $F(\xi)=\xi+2t\big(\frac13+\frac23\sin\frac{\xi}{2}\big)-s$ in $[s-2t-\epsilon,\;s+\frac{2t}{3}+\epsilon]$; **select the entropy branch** $\xi^*=\arg\min_i G(\xi_i)$; output $u=\frac13+\frac23\sin\frac{\xi^*}{2}$.
+  * $t=0$: output the IC formula directly.
+  * Root refinement to machine precision (bracketed Newton); vectorize over the grid.
+  * Self-check: at $t=2$ the solution must exhibit shocks at $x+y\approx 7.6165$ and $20.1829$ with $u_L\approx 0.9711$, $u_R\approx -0.3044$.
+* **3.1 Advisor-Mandated Adjustments:** None.
+
+**4. Visualization Strategy**
+* **Field Selection:** Single primary field $u(x,y,t)$ — the only conserved variable; it fully captures the steepening and shock formation. No derived quantities.
+* **Snapshots (4 distinct times):** $t=0.0$ (initial sinusoid), $t=1.0$ (steepened pre-shock), $t=1.5$ (gradient catastrophe), $t=2.0$ (two developed diagonal shocks).
+* **Layout:** Grid — 1 row (field $u$) × 4 columns (times).
+* **Saving Data:** Save the full solution state ($u$ on the evaluation grid) every `dt_save = 0.1` over $[0,2]$ (21 ground-truth states).
+* **Constraints:**
+  * Save as: `summary_all.png` (strictly).
+  * If the code is in Julia: **disable colorbars** (`colorbar=false`).
+  * No fixed colormaps — let scales adjust automatically per snapshot.
+  * Plot only $u$.
+
+**5. Cross-Validation & Data Integration (Conditional)**
+* Trigger check: [USER_QUESTION] contains no external data paths (no sensors/reference data) → **Not applicable.** The MoC solution is itself the analytical ground truth; use the Section 1 shock checkpoints ($t=2$: shock locations and jump states) for self-validation.
+
+**REQUIRED COMPONENTS**
+
+**Main Method:**
+Method of Characteristics (Analytical/Exact)
+
+**Enhancements:**
+* Entropy Condition Root Selection
+
+--- Critic report---
+APPROVED
+
+**Validation:** All checks passed. **(1) Method scope:** The Main Method is exactly **Method of Characteristics (Analytical/Exact)**, which is in the Reference Toolbox; entropy-based root selection is correctly placed under Enhancements. **(2) Physics consistency:** MoC is appropriate for this hyperbolic scalar conservation law, and the plan explicitly preserves the governing equation, domain, periodic BCs, and initial condition. **(3) Exact-solution priority:** Section 2 derives an exact characteristic solution, including post-shock entropy selection, and the Main Method correspondingly selects MoC rather than abandoning the analytical solution for a numerical solver. **(4) Redundancy:** No previous trials exist, so there is no repeated failed configuration. **(5) Over-engineering:** Template defaults are retained, with no arbitrary polynomial order, CFL constraint, or integration time step; the output schedule and visualization choices are permissible. **(6) Data integration:** The user supplied no external reference or sensor data, so file-based cross-validation is not required; analytical shock checkpoints provide self-validation. **(7) User compliance and completeness:** The plan mandates `summary_all.png` with snapshots at several times and provides code-ready LaTeX specifications rather than a lazy summary. **(8) Advisor compliance:** The Advisor Report is empty, so “Advisor-Mandated Adjustments: None” is correct.
+
+--- 2. Calling Collection Team ---
+--- Retrieval Iteration: 0 ---
+Retriever Message:
+[Burgers_MoC.jl]
+
+**Justification**
+Retrieved file matches the Main Method (Method of Characteristics for a scalar inviscid Burgers' conservation law) and is compatible with the report's time-dependent formulation; although the template is nominally 1D, the report's exact solver reduces the 2D problem exactly to a 1D MoC problem in $s=x+y$, making this the correct base template for pointwise characteristic root-inversion and entropy-branch selection.
+Validator Message:
+APPROVED
+The strategy explicitly justifies an exact dimensional reduction of the 2D problem to 1D via the symmetry ansatz $u(x,y,t)=U(x+y,t)$, and the retrieved 1D Burgers MoC code implements the matching kernel — implicit characteristic root-finding with entropy-condition (equal-area / Rankine–Hugoniot) shock branch selection on a periodic domain with a sinusoidal IC — which is exactly the solver engine requested.
+Approval Status: True
+✅ Retrieval loop approved file: Burgers_MoC.jl
+
+--- Retrieved template: Burgers_MoC.jl (First 5 lines) ---
+# CODE ANALYSIS (PART 1 of 6)
+# DESCRIPTION:
+#
+# 
+#   method: Method of Characteristics (MoC) with Shock Fitting,
+---------------------------------------------------
+
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: **Context:** The template already uses an analytical Method-of-Characteristics framework, but its 1D sine-wave solver, geometric shock fitting, coordinate rescaling, and visualization must be replaced by the specified reduced 2D Burgers solution with explicit entropy-based root selection.
+
+**Mapping:**
+- **Cell 0 (Preamble and Imports): Modify** - Keep the existing `Plots`, `Roots`, `LinearAlgebra`, and `NPZ` dependencies, but update the framework description to cover the 2D-to-1D reduction, bounded multi-root search, and Hopf–Lax/Oleinik entropy selection rather than secant-based geometric shock fitting.
+- **Cell 1 (Core Analytical Solver Definition): Modify** - Replace `solve_burgers_analytical` and `solve_characteristic_root` with the specified initial profile \(U_0(s)\), characteristic equation in \(s=x+y\), direct \(t=0\) evaluation, bounded dense bracketing with root refinement, enumeration of all admissible roots, minimization of \(G(\xi)\), and pointwise/vectorized reconstruction of \(u(x,y,t)\). Remove the shock-location splitting and reflection logic.
+- **Cell 2 (Problem Configuration and Coordinate Mapping): Modify** - Replace the \([-1,1]\) physical domain and canonical transformations with the doubly periodic \([0,4\pi]^2\) evaluation grid, final time \(t=2\), 21 output times separated by `dt_save = 0.1`, and access to the four requested snapshot times; retain template grid-resolution defaults where applicable.
+- **Cell 3 (Time Evolution Loop): Modify** - Evaluate the exact solution independently at every output time without timestepping or canonical time scaling, and store all 21 full two-dimensional \(u\)-fields together with their coordinates and times.
+- **Cell 4 (Visualization Dashboard): Modify** - Replace the space-time heatmap and final slice with a \(1\times4\) grid containing only \(u\) at \(t=0,1,1.5,2\); use automatically adjusted snapshot scales, disable colorbars with `colorbar=false`, remove the fixed `:jet` colormap, and save the result strictly as `summary_all.png`.
+- **Cell 5 (Data Persistence and Verification): Modify** - Preserve NPZ persistence and file verification, but save the full 2D spatial solution tensor for all 21 times with consistent `x`, `y`, and `t` arrays and updated shape checks; add the specified \(t=2\) self-validation of shock locations and left/right states.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5'])
+Identified Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+  - [Planner]: Instructions received:
+Cell 0: Preamble and Imports
+- Action: Replace the outdated 1D secant-method and geometric shock-fitting description with the required 2D Burgers reduction, bounded multi-root search, and Hopf–Lax entropy selection.
+- Action: Keep all imports unchanged; they already satisfy the strategy.
+- New Code (lines 1-14):
+```julia
+# # Preamble: Solver and Analytical Framework Initialization
+#
+# ## Framework: Method of Characteristics (MoC) for 2D Inviscid Burgers' Equation
+# Initializes the components needed to generate the **Exact Entropy Solution** on the doubly periodic domain.
+#
+# 1.  **Analytical Core (`Roots`, `LinearAlgebra`)**:
+#     * Uses the invariant coordinate $s=x+y$ to reduce the 2D problem exactly to $U_t + 2UU_s = 0$.
+#     * Solves the implicit characteristic equation $s=\xi+2tU_0(\xi)$ over its bounded root window using dense bracketing and root refinement.
+#     * **Entropy Selection**: Enumerates all admissible characteristic roots and selects the minimizer of the Hopf–Lax functional, enforcing the Oleinik entropy condition and the correct Rankine–Hugoniot shocks.
+#
+# 2.  **Diagnostics (`Plots`, `NPZ`)**:
+#     * **`Plots`**: Visualizes $u(x,y,t)$ at the requested snapshot times to verify smooth steepening and shock formation.
+#     * **`NPZ`**: Exports the full space-time ground-truth tensor for subsequent numerical verification and supervised training.
+#
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-14: action='replace'
+    - Replacing lines 1-14 with 14 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Core Analytical Solver Definition ---
+  - [Planner]: Instructions received:
+Cell 1: Core Analytical Solver Definition
+- Action: Replace the canonical 1D sine solver and geometric reflection logic with the required reduced equation \(U_t+2UU_s=0\), where \(s=x+y\).
+- Action: Implement bounded root enumeration, safeguarded bracketed-Newton refinement, and selection of the root minimizing the Hopf–Lax functional. The smooth regime has one root over the full bracket; the post-breaking regime uses a dense scan to capture all folded-characteristic roots.
+- Action: Provide scalar, array, and 2D-grid evaluation methods, with direct initial-condition evaluation at \(t=0\) and no time stepping.
+- New Code (lines 1-79):
+```julia
+#
+# ## Algorithm: Implicit Characteristic Tracing with Entropy Root Selection
+# The function `solve_burgers_analytical` evaluates the exact entropy solution
+# without time-stepping errors.
+#
+# ### Logic Flow:
+# 1. **Exact Reduction**: Use $s=x+y$ and $U_0(s)=1/3+(2/3)\sin(s/2)$, giving
+#    $U_t+2UU_s=0$.
+# 2. **Bounded Root Window**: For $t>0$, every characteristic root lies in
+#    $[s-2t,s+2t/3]$.
+# 3. **Root Finding**: Refine sign-changing brackets with safeguarded Newton
+#    iterations. Before breaking, the full window contains the unique root;
+#    afterward, a dense scan enumerates the roots of the folded characteristic map.
+# 4. **Entropy Enforcement**: Select the root minimizing
+#    $G(\xi)=(s-\xi)^2/(4t)+\phi_0(\xi)$, which implements the Oleinik entropy
+#    condition and the equal-area rule.
+
+# %%
+"""
+    initial_state(xi)
+
+Initial profile $U_0(\xi)=1/3+(2/3)\sin(\xi/2)$.
+"""
+@inline initial_state(xi) = 1.0 / 3.0 + (2.0 / 3.0) * sin(xi / 2.0)
+
+"""
+    initial_potential(xi)
+
+Primitive of the initial profile, normalized by $\phi_0(0)=0$.
+"""
+@inline initial_potential(xi) =
+    xi / 3.0 + (4.0 / 3.0) * (1.0 - cos(xi / 2.0))
+
+@inline characteristic_residual(xi, s, t) =
+    xi + 2.0 * t * initial_state(xi) - s
+
+@inline characteristic_derivative(xi, t) =
+    1.0 + (2.0 * t / 3.0) * cos(xi / 2.0)
+
+"""
+    refine_characteristic_root(s, t, left, right)
+
+Refine one root inside a sign-changing bracket. Newton steps are accepted only
+when they remain inside the bracket; otherwise bisection is used. This retains
+bracketing robustness at the gradient catastrophe, where the derivative can vanish.
+"""
+function refine_characteristic_root(s, t, left, right)
+    residual(xi) = characteristic_residual(xi, s, t)
+    derivative(xi) = characteristic_derivative(xi, t)
+
+    f_left = residual(left)
+    f_right = residual(right)
+    iszero(f_left) && return left
+    iszero(f_right) && return right
+
+    lower = left
+    upper = right
+    f_lower = f_left
+    xi = 0.5 * (lower + upper)
+
+    for _ in 1:100
+        f_xi = residual(xi)
+        iszero(f_xi) && return xi
+
+        if signbit(f_xi) == signbit(f_lower)
+            lower = xi
+            f_lower = f_xi
+        else
+            upper = xi
+        end
+
+        midpoint = 0.5 * (lower + upper)
+        if midpoint == lower || midpoint == upper
+            return midpoint
+        end
+
+        d_f_xi = derivative(xi)
+        candidate = iszero(d_f_xi) ? NaN : xi - f_xi / d_f_xi
+
+        if !isfinite(candidate) ||
+           candidate <= lower || candidate >= upper || candidate == xi
+            candidate = midpoint
+        end
+        xi = candidate
+    end
+
+    return 0.5 * (lower + upper)
+end
+
+function append_unique_root!(roots, candidate)
+    tolerance = 64.0 * eps(Float64) * max(1.0, abs(candidate))
+    if all(root -> abs(root - candidate) > tolerance, roots)
+        push!(roots, candidate)
+    end
+    return roots
+end
+
+"""
+    characteristic_roots(s, t)
+
+Find all roots of $\xi+2tU_0(\xi)-s=0$ in the bounded characteristic window.
+"""
+function characteristic_roots(s, t)
+    window_padding = 1.0e-12
+    lower = s - 2.0 * t - window_padding
+    upper = s + (2.0 * t / 3.0) + window_padding
+
+    # F' >= 1-2t/3 > 0 before breaking. At breaking, the map is still
+    # nondecreasing and the full bracket contains its unique root.
+    if t <= 1.5
+        return [refine_characteristic_root(s, t, lower, upper)]
+    end
+
+    roots = Float64[]
+    residual(xi) = characteristic_residual(xi, s, t)
+
+    scan_intervals = 256
+    scan_grid = range(lower, upper; length=scan_intervals + 1)
+
+    left = lower
+    f_left = residual(left)
+    iszero(f_left) && append_unique_root!(roots, left)
+
+    for index in 1:scan_intervals
+        right = scan_grid[index + 1]
+        f_right = residual(right)
+
+        if iszero(f_right)
+            append_unique_root!(roots, right)
+        elseif !iszero(f_left) && signbit(f_left) != signbit(f_right)
+            root = refine_characteristic_root(s, t, left, right)
+            append_unique_root!(roots, root)
+        end
+
+        left = right
+        f_left = f_right
+    end
+
+    # The window endpoints have opposite signs, so at least one root must exist.
+    if isempty(roots)
+        push!(roots, refine_characteristic_root(s, t, lower, upper))
+    end
+
+    return roots
+end
+
+"""
+    solve_burgers_analytical(s, t)
+    solve_burgers_analytical(x, y, t)
+
+Exact entropy solution of the reduced Burgers problem. The two-argument form
+accepts a scalar or an array of $s=x+y$ values. The three-argument form accepts
+vectors of $x$ and $y$ coordinates and returns an array with dimensions
+$(N_x,N_y)$. Periodicity follows from the $4\pi$-periodic initial profile.
+"""
+function solve_burgers_analytical(s::Real, t::Real)
+    s_value = Float64(s)
+    t_value = Float64(t)
+
+    t_value < 0.0 && throw(ArgumentError("The exact solver requires t >= 0."))
+    iszero(t_value) && return initial_state(s_value)
+
+    roots = characteristic_roots(s_value, t_value)
+
+    best_root = first(roots)
+    best_value = Inf
+
+    for xi in roots
+        hopf_lax_value =
+            (s_value - xi)^2 / (4.0 * t_value) + initial_potential(xi)
+
+        if hopf_lax_value < best_value
+            best_value = hopf_lax_value
+            best_root = xi
+        end
+    end
+
+    return initial_state(best_root)
+end
+
+function solve_burgers_analytical(s::AbstractArray, t::Real)
+    return map(s_value -> solve_burgers_analytical(s_value, t), s)
+end
+
+function solve_burgers_analytical(
+    x::AbstractVector,
+    y::AbstractVector,
+    t::Real,
+)
+    s_grid = x .+ transpose(y)
+    return solve_burgers_analytical(s_grid, t)
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-79: action='replace'
+    - Replacing lines 1-79 with 192 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Problem Configuration and Coordinate Mapping ---
+  - [Planner]: Instructions received:
+Cell 2: Problem Configuration and Coordinate Mapping
+- Action: Replace the rescaled one-dimensional problem with the specified doubly periodic \([0,4\pi]^2\) domain and final time \(t=2\).
+- Action: Retain the template default of 256 samples, now in each spatial direction, and exclude the duplicate periodic endpoint.
+- Action: Configure 21 output states using `dt_save = 0.1` and define the four requested snapshot times. No canonical coordinate or time transformation is required.
+- New Code (lines 1-29):
+```julia
+#
+# ## Physical Problem
+# * **Domain:** $(x,y)\in[0,4\pi]\times[0,4\pi]$, periodic in both directions
+# * **Initial Condition:** $u_0(x,y)=1/3+(2/3)\sin((x+y)/2)$
+# * **Time Interval:** $t\in[0,2]$
+#
+# The exact solver is evaluated directly in the physical coordinates. No
+# canonical spatial mapping, time rescaling, CFL condition, or time stepper
+# is required.
+
+# %%
+# --- 1. Define the periodic evaluation grid ---
+x_min, x_max = 0.0, 4.0 * pi
+y_min, y_max = 0.0, 4.0 * pi
+t_start, t_final = 0.0, 2.0
+
+# Retain the template's spatial sampling default in each direction.
+N_samples = 256
+dt_save = 0.1
+
+# Exclude the duplicate endpoint because x=0 and x=4π are identified,
+# and likewise for y.
+x_phys = range(x_min, x_max; length=N_samples + 1)[1:end-1]
+y_phys = range(y_min, y_max; length=N_samples + 1)[1:end-1]
+
+# --- 2. Define output and snapshot times ---
+t_array = collect(t_start:dt_save:t_final)
+N_output_times = length(t_array)
+snapshot_times = [0.0, 1.0, 1.5, 2.0]
+
+@assert N_output_times == 21 "Expected 21 ground-truth output states."
+@assert all(t -> any(isapprox(t; atol=1.0e-12), t_array), snapshot_times)
+
+println("Problem configured on the doubly periodic domain [0, 4π]^2.")
+println("Grid: $N_samples × $N_samples spatial points.")
+println("Saving $N_output_times exact states from t=$t_start to t=$t_final.")
+println("Snapshot times: ", snapshot_times)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-29: action='replace'
+    - Replacing lines 1-29 with 37 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Time Evolution Loop ---
+  - [Planner]: Instructions received:
+Cell 3: Time Evolution Loop
+- Action: Replace the canonical time rescaling and one-dimensional solution storage with direct evaluation of the exact solver on the 2D grid.
+- Action: Store all 21 full solution states in `usol` with dimensions \((N_x,N_y,N_t)\); output times remain independent evaluations, not numerical timesteps.
+- New Code (lines 1-27):
+```julia
+#
+# ## Batch Processing
+# The Method of Characteristics permits independent evaluation at every output
+# time. We construct the full ground-truth tensor `usol` for visualization and
+# data persistence without time-stepping errors.
+#
+# * **Storage:** `usol[:, :, i]` is the complete 2D field at `t_array[i]`.
+# * **Complexity:** $O(N_x N_y N_t)$ independent exact-solution evaluations.
+# * **Precision:** The same entropy-selection procedure is valid before and
+#   after shock formation; $t=0$ uses the initial condition directly.
+
+# %%
+# Solution tensor with dimensions (x, y, time).
+usol = zeros(Float64, N_samples, N_samples, N_output_times)
+
+# The solution depends on space only through s = x + y.
+s_grid = x_phys .+ transpose(y_phys)
+
+println("Starting exact solution evaluation at $(N_output_times) output times...")
+
+for (i, t_current) in enumerate(t_array)
+    # No canonical time mapping or numerical time stepping is required.
+    usol[:, :, i] = solve_burgers_analytical(s_grid, t_current)
+end
+
+@assert size(usol) == (N_samples, N_samples, 21)
+@assert all(isfinite, usol)
+
+println("Exact solution evaluation complete.")
+println("Solution tensor size: ", size(usol))
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-29: action='replace'
+    - Replacing lines 1-29 with 30 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Visualization Dashboard ---
+  - [Planner]: Instructions received:
+Cell 4: Visualization Dashboard
+- Action: Replace the space-time heatmap and final one-dimensional slice with four 2D snapshots of \(u\) at \(t=0,1,1.5,2\).
+- Action: Use a \(1\times4\) layout, disable colorbars, omit fixed colormaps and color limits so each snapshot scales automatically, and retain the required `summary_all.png` output path.
+- New Code (lines 1-35):
+```julia
+#
+# ## Four-Snapshot Exact-Solution Dashboard
+# Display only the conserved field $u(x,y,t)$ at the initial time, during
+# pre-shock steepening, at gradient catastrophe, and after shock formation.
+# Each heatmap determines its color scale independently.
+
+# %%
+# Locate the requested snapshots among the saved output states.
+snapshot_indices = map(snapshot_times) do t_snapshot
+    index = findfirst(
+        t -> isapprox(t, t_snapshot; atol=1.0e-12),
+        t_array,
+    )
+    @assert index !== nothing "Snapshot time $t_snapshot is not in t_array."
+    return index
+end
+
+# Create one automatically scaled 2D panel per snapshot.
+snapshot_panels = map(snapshot_times, snapshot_indices) do t_snapshot, index
+    u_snapshot = usol[:, :, index]
+
+    heatmap(
+        x_phys,
+        y_phys,
+        permutedims(u_snapshot),
+        xlabel="x",
+        ylabel="y",
+        title="u(x,y), t = $t_snapshot",
+        colorbar=false,
+        aspect_ratio=:equal,
+        legend=false,
+    )
+end
+
+# Combine the four fields into the required 1 × 4 dashboard.
+p_combined = plot(
+    snapshot_panels...;
+    layout=(1, 4),
+    size=(1800, 420),
+    margin=5 * Plots.mm,
+)
+
+savefig(p_combined, joinpath(@__DIR__, "summary_all.png"))
+display(p_combined)
+
+println("Four-snapshot dashboard saved to summary_all.png")
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-35: action='replace'
+    - Replacing lines 1-35 with 46 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Data Persistence and Verification ---
+  - [Planner]: Instructions received:
+Cell 5: Data Persistence and Verification
+- Action: Preserve NPZ persistence, but save the complete solution as a `(time, x, y)` tensor and include both spatial coordinate arrays.
+- Action: Extend file verification to check all array dimensions and confirm that the saved solution contains only finite values.
+- Action: Add the required \(t=2\) self-check by probing immediately on either side of both analytical shock trajectories and verifying their locations, entropy states, and jumps.
+- New Code (lines 1-31):
+```julia
+#
+# ## Artifact Generation and Ground-Truth Verification
+# Save the high-fidelity exact solution to `burgers.npz` as ground truth for
+# numerical error calculations and supervised training. The tensor uses the
+# Python-friendly dimension order `(time, x, y)`.
+
+# %%
+# Convert from local (x, y, time) storage to (time, x, y).
+usol_save = Float64.(permutedims(usol, (3, 1, 2)))
+t_save = collect(Float64.(t_array))
+x_save = collect(Float64.(x_phys))
+y_save = collect(Float64.(y_phys))
+
+@assert size(usol_save) == (21, N_samples, N_samples)
+@assert length(t_save) == 21
+@assert all(isfinite, usol_save)
+
+npz_path = joinpath(@__DIR__, "burgers.npz")
+npzwrite(npz_path, Dict(
+    "t" => t_save,
+    "x" => x_save,
+    "y" => y_save,
+    "usol" => usol_save,
+))
+
+println("Data saved as NPZ to burgers.npz")
+
+# ----- Verify the saved file ----------------------------------------
+println("\n--- File Verification ---")
+file_size = filesize(npz_path)
+println("File size: $(file_size) bytes ($(round(file_size / 1024 / 1024; digits=2)) MB)")
+
+data_check = npzread(npz_path)
+println("Keys in file: ", keys(data_check))
+println("Shape of usol: ", size(data_check["usol"]))
+println("Shape of t: ", size(data_check["t"]))
+println("Shape of x: ", size(data_check["x"]))
+println("Shape of y: ", size(data_check["y"]))
+
+@assert size(data_check["usol"]) == (21, N_samples, N_samples)
+@assert size(data_check["t"]) == (21,)
+@assert size(data_check["x"]) == (N_samples,)
+@assert size(data_check["y"]) == (N_samples,)
+@assert all(isfinite, data_check["usol"])
+
+# ----- Analytical shock self-check at t = 2 --------------------------
+println("\n--- Shock Validation at t = 2 ---")
+validation_time = 2.0
+probe_offset = 1.0e-4
+
+shock_positions = [
+    2.0 * pi + 2.0 * validation_time / 3.0,
+    6.0 * pi + 2.0 * validation_time / 3.0,
+]
+reference_positions = [7.6165, 20.1829]
+
+for (shock_position, reference_position) in
+    zip(shock_positions, reference_positions)
+
+    # Probe the two entropy branches immediately adjacent to the shock.
+    u_left = solve_burgers_analytical(
+        shock_position - probe_offset,
+        validation_time,
+    )
+    u_right = solve_burgers_analytical(
+        shock_position + probe_offset,
+        validation_time,
+    )
+    jump = u_left - u_right
+
+    println(
+        "s ≈ $(round(shock_position; digits=6)): " *
+        "u_L = $(round(u_left; digits=6)), " *
+        "u_R = $(round(u_right; digits=6)), " *
+        "jump = $(round(jump; digits=6))",
+    )
+
+    @assert isapprox(
+        shock_position,
+        reference_position;
+        atol=5.0e-5,
+        rtol=0.0,
+    )
+    @assert isapprox(u_left, 0.9711; atol=2.0e-3, rtol=0.0)
+    @assert isapprox(u_right, -0.3044; atol=2.0e-3, rtol=0.0)
+    @assert u_left > u_right
+    @assert isapprox(jump, 1.28; atol=0.01, rtol=0.0)
+end
+
+println("NPZ verification and analytical shock checks passed.")
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 1-31: action='replace'
+    - Replacing lines 1-31 with 90 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ The code implements the exact Method of Characteristics solution for the 2D inviscid Burgers equation on the doubly periodic domain [0,4π]^2 over t∈[0,2]. It uses the invariant s=x+y to reduce to U_t+2UU_s=0 with U0(s)=1/3+(2/3)sin(s/2). For each grid point it solves the characteristic equation ξ+2tU0(ξ)=s using bracketed Newton refinement over the bounded window [s-2t, s+2t/3]; for post-breaking times it enumerates roots and selects the entropy branch by minimizing the Hopf–Lax functional G=(s-ξ)^2/(4t)+φ0(ξ), with φ0=ξ/3+4/3(1-cos(ξ/2)). The evaluation grid is 256×256 (endpoint excluded for periodicity), and 21 output states are generated at dt_save=0.1 from t=0 to 2. The required snapshots t=0,1,1.5,2 are plotted in a 1×4 heatmap dashboard with colorbar=false. A self-check at t=2 verifies the shock locations and left/right states against the specified reference values.
+Proposed name:InviscidBurgers_2D_Periodic_Sin_xplusy_over2\Question :Let's solve the 2D Inviscid Burgers' equation.
+Domain: $(x,y) \in [0, 4\pi]^2$, $t \in [0, 2]$.
+BCs: Periodic in both x and y.
+
+Initial Condition:
+$$ u(x,y,0) = \frac{1}{3} + \frac{2}{3}\sin\left(\frac{x+y}{2}\right) $$
+
+The final plot must be saved as summary_all.png it should include snapshots of several timesteps
+
+Created project directory: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0159/
+Successfully saved code to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0159/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl
+Attempting to run /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0159/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl...
+
+--- [Streaming Output silently to /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0159/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl.out] ---
+--- [End of Stream. Exit Code: 1] ---
+❌ Error running InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl.
+--- [Found julia Error. Sending snippet to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: REJECTED_FATAL
+Debugger Analysis: Cell 1 (Core Analytical Solver Definition) fails at source line 46 in the docstring for `initial_state`, before any solver code executes. The ordinary Julia docstring contains LaTeX such as `\xi`; Julia interprets `\x` as the start of a hexadecimal escape, so `\xi` causes `ParseError: invalid hex escape sequence`. The Planner must escape the LaTeX backslashes in the Julia source (for example, write `\\xi` and `\\sin` inside the docstring), replace the markup with plain text, or use an appropriate raw-string docstring. Audit the remaining docstrings in Cell 1 for similar unescaped backslashes and rerun. Execution never reached visualization, so `summary_all.png` was not generated.
+--- Clearing agent short-term memories ---
+Chat history cleared.
+
+--- Code Creation Iteration: 1 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- There was an implementation error so we will keep the same strategy for this iteration---
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: **Context:** The Julia template already implements the required exact Method-of-Characteristics solver with Hopf–Lax entropy root selection, direct snapshot evaluation, visualization, and ground-truth persistence; only the Cell 1 parse failure requires correction.
+
+1. **Preamble (Imports):** Keep — `Plots`, `Roots`, `LinearAlgebra`, and `NPZ` are already initialized without conflicting with the strategy.
+2. **Cell 1 (Core Analytical Solver Definition):** Modify — Audit every ordinary Julia docstring and escape LaTeX backslashes or replace the markup with plain text, including the failing `\xi` and other sequences such as `\sin`, `\phi`, and `\pi`. Preserve the analytical solver, root refinement, and entropy-selection logic unchanged.
+3. **Cell 2 (Problem Configuration and Coordinate Mapping):** Keep — The periodic domain, 256-point sampling, 21 output times, and four required snapshot times already match the strategy.
+4. **Cell 3 (Time Evolution Loop):** Keep — Direct exact-solution evaluation correctly avoids numerical time stepping and constructs the full ground-truth tensor.
+5. **Cell 4 (Visualization Dashboard):** Keep — The 1×4 dashboard plots only \(u\), disables colorbars, uses independent color scaling, and saves `summary_all.png`.
+6. **Cell 5 (Data Persistence and Verification):** Keep — NPZ export, file verification, and the analytical shock checks at \(t=2\) already satisfy the strategy.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5'])
+Identified Cells: dict_keys(['Cell 1'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Core Analytical Solver Definition ---
+  - [Planner]: Instructions received:
+Cell 1: Core Analytical Solver Definition
+- Action: The MoC solver and entropy root selection already satisfy the strategy. Fix only the parse failure by replacing LaTeX containing unescaped backslashes in all affected ordinary docstrings with plain text. Leave executable solver code and comments unchanged.
+- New Code (lines 19-23):
+```julia
+"""
+    initial_state(xi)
+
+Initial profile U0(xi) = 1/3 + (2/3) sin(xi/2).
+"""
+```
+- New Code (lines 25-29):
+```julia
+"""
+    initial_potential(xi)
+
+Primitive of the initial profile, normalized by phi0(0) = 0.
+"""
+```
+- New Code (lines 97-101):
+```julia
+"""
+    characteristic_roots(s, t)
+
+Find all roots of xi + 2t U0(xi) - s = 0 in the bounded characteristic window.
+"""
+```
+- New Code (lines 146-154):
+```julia
+"""
+    solve_burgers_analytical(s, t)
+    solve_burgers_analytical(x, y, t)
+
+Exact entropy solution of the reduced Burgers problem. The two-argument form
+accepts a scalar or an array of s = x + y values. The three-argument form accepts
+vectors of x and y coordinates and returns an array with dimensions
+(Nx, Ny). Periodicity follows from the 4pi-periodic initial profile.
+"""
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 146-154: action='replace'
+    - Replacing lines 146-154 with 9 new lines.
+  - Processing change for lines 97-101: action='replace'
+    - Replacing lines 97-101 with 5 new lines.
+  - Processing change for lines 25-29: action='replace'
+    - Replacing lines 25-29 with 5 new lines.
+  - Processing change for lines 19-23: action='replace'
+    - Replacing lines 19-23 with 5 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Problem Configuration and Coordinate Mapping ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Time Evolution Loop ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Visualization Dashboard ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Data Persistence and Verification ---
+NO CHANGE REQUIRED
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ The code implements the exact Method of Characteristics solution for the 2D inviscid Burgers equation on the doubly periodic domain [0,4π]^2 over t∈[0,2]. It uses the invariant s=x+y and the reduced 1D profile U0(s)=1/3+(2/3)sin(s/2). For t>0 it solves the implicit characteristic equation ξ+2tU0(ξ)=s in the bounded window [s-2t,s+2t/3], refines roots with a bracketed Newton/bisection method, and selects the entropy-satisfying branch by minimizing the Hopf–Lax functional G(ξ)=(s-ξ)^2/(4t)+φ0(ξ). The physical grid is 256×256 (endpoint duplicates excluded for periodicity), with 21 saved output times from t=0 to t=2 at dt_save=0.1. Snapshots are produced at t=0.0, 1.0, 1.5, and 2.0 in a 1×4 layout with colorbars disabled. The code also includes the required self-check at t=2 for shock locations 7.6165 and 20.1829 and states u_L≈0.9711, u_R≈-0.3044, jump≈1.28.
+Proposed name:InviscidBurgers_2D_Periodic_Sin_xplusy_over2\Question :Let's solve the 2D Inviscid Burgers' equation.
+Domain: $(x,y) \in [0, 4\pi]^2$, $t \in [0, 2]$.
+BCs: Periodic in both x and y.
+
+Initial Condition:
+$$ u(x,y,0) = \frac{1}{3} + \frac{2}{3}\sin\left(\frac{x+y}{2}\right) $$
+
+The final plot must be saved as summary_all.png it should include snapshots of several timesteps
+
+Created project directory: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0203/
+Successfully saved code to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0203/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl
+Attempting to run /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0203/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl...
+
+--- [Streaming Output silently to /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0203/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl.out] ---
+--- [End of Stream. Exit Code: 1] ---
+❌ Error running InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl.
+--- [Found julia Error. Sending snippet to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: REJECTED_FATAL
+Debugger Analysis: The execution failed while loading the script in Cell 1 (Core Analytical Solver Definition), at approximately line 47. Julia reported `LoadError: cannot document the following expression`, so none of the solver, plotting, or file-saving cells ran. This is a fixable code-generation error caused by malformed triple-quoted docstrings: an extra `"""` before `@inline initial_potential` turns the function definitions into string content, and Julia subsequently attempts to treat that string as a documentable expression. Similar malformed quoting also surrounds `characteristic_roots` and `solve_burgers_analytical`. The Planner must rewrite Cell 1 so that each docstring is opened and closed exactly once and is immediately followed by the actual, uncommented function definition. In particular, remove the triple quotes wrapping the bodies of `initial_potential` through `characteristic_derivative`, `characteristic_roots`, and `solve_burgers_analytical`, while retaining properly closed docstrings for `refine_characteristic_root` and the other functions. Then rerun the complete script.
+--- Clearing agent short-term memories ---
+Chat history cleared.
+
+--- Code Creation Iteration: 2 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- There was an implementation error so we will keep the same strategy for this iteration---
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: 1. **Context:** The template implements the required exact Method of Characteristics solver with Hopf–Lax entropy root selection, direct snapshot evaluation, visualization, and ground-truth persistence; malformed docstrings in Cell 1 currently prevent execution.
+
+2. **Mapping:**
+   - Cell 0 (Preamble: Imports): **Keep** — `Plots`, `Roots`, `LinearAlgebra`, and `NPZ` already support the required workflow.
+   - Cell 1 (Core Analytical Solver Definition): **Modify** — Repair the malformed triple-quoted docstrings reported by the debugger. Restore `initial_potential`, `characteristic_residual`, `characteristic_derivative`, `characteristic_roots`, and all `solve_burgers_analytical` methods as executable definitions, while preserving the existing MoC algorithm, bounded root window, root refinement, and entropy selection.
+   - Cell 2 (Problem Configuration and Coordinate Mapping): **Keep** — The periodic domain, initial/final times, 21 output states, and four required snapshot times already match the strategy.
+   - Cell 3 (Time Evolution Loop): **Keep** — Direct evaluation of the exact solver on \(s=x+y\) correctly constructs the full ground-truth tensor without numerical time stepping.
+   - Cell 4 (Visualization Dashboard): **Keep** — The existing \(1\times4\) heatmap dashboard plots only \(u\), disables colorbars, uses automatic per-snapshot scaling, and saves `summary_all.png`.
+   - Cell 5 (Data Persistence and Verification): **Keep** — The cell already saves all 21 states to `burgers.npz`, verifies the stored arrays, and performs the required shock-position and jump-state checks at \(t=2\).
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5'])
+Identified Cells: dict_keys(['Cell 1'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Core Analytical Solver Definition ---
+  - [Planner]: Instructions received:
+Cell 1: Core Analytical Solver Definition
+- Action: Fix the `LoadError` by removing the extra triple-quoted blocks and ensuring every docstring is closed exactly once and immediately followed by executable code.
+- Action: Preserve the existing MoC formulation, safeguarded root refinement, bounded root enumeration, Hopf–Lax entropy selection, and solver interfaces without strategic changes.
+- New Code (lines 18-161):
+```julia
+"""
+    initial_state(xi)
+
+Initial profile U0(xi) = 1/3 + (2/3) sin(xi/2).
+"""
+@inline initial_state(xi) = 1.0 / 3.0 + (2.0 / 3.0) * sin(xi / 2.0)
+
+"""
+    initial_potential(xi)
+
+Primitive of the initial profile, normalized by phi0(0) = 0.
+"""
+@inline initial_potential(xi) =
+    xi / 3.0 + (4.0 / 3.0) * (1.0 - cos(xi / 2.0))
+
+@inline characteristic_residual(xi, s, t) =
+    xi + 2.0 * t * initial_state(xi) - s
+
+@inline characteristic_derivative(xi, t) =
+    1.0 + (2.0 * t / 3.0) * cos(xi / 2.0)
+
+"""
+    refine_characteristic_root(s, t, left, right)
+
+Refine one root inside a sign-changing bracket. Newton steps are accepted only
+when they remain inside the bracket; otherwise bisection is used. This retains
+bracketing robustness at the gradient catastrophe, where the derivative can vanish.
+"""
+function refine_characteristic_root(s, t, left, right)
+    residual(xi) = characteristic_residual(xi, s, t)
+    derivative(xi) = characteristic_derivative(xi, t)
+    f_left = residual(left)
+    f_right = residual(right)
+    iszero(f_left) && return left
+    iszero(f_right) && return right
+    lower = left
+    upper = right
+    f_lower = f_left
+    xi = 0.5 * (lower + upper)
+
+    for _ in 1:100
+        f_xi = residual(xi)
+        iszero(f_xi) && return xi
+
+        if signbit(f_xi) == signbit(f_lower)
+            lower = xi
+            f_lower = f_xi
+        else
+            upper = xi
+        end
+
+        midpoint = 0.5 * (lower + upper)
+        if midpoint == lower || midpoint == upper
+            return midpoint
+        end
+
+        d_f_xi = derivative(xi)
+        candidate = iszero(d_f_xi) ? NaN : xi - f_xi / d_f_xi
+        if !isfinite(candidate) ||
+           candidate <= lower || candidate >= upper || candidate == xi
+            candidate = midpoint
+        end
+        xi = candidate
+    end
+
+    return 0.5 * (lower + upper)
+end
+
+function append_unique_root!(roots, candidate)
+    tolerance = 64.0 * eps(Float64) * max(1.0, abs(candidate))
+    if all(root -> abs(root - candidate) > tolerance, roots)
+        push!(roots, candidate)
+    end
+    return roots
+end
+
+"""
+    characteristic_roots(s, t)
+
+Find all roots of xi + 2t U0(xi) - s = 0 in the bounded characteristic window.
+"""
+function characteristic_roots(s, t)
+    window_padding = 1.0e-12
+    lower = s - 2.0 * t - window_padding
+    upper = s + (2.0 * t / 3.0) + window_padding
+
+    # F' >= 1-2t/3 > 0 before breaking. At breaking, the map is still
+    # nondecreasing and the full bracket contains its unique root.
+    if t <= 1.5
+        return [refine_characteristic_root(s, t, lower, upper)]
+    end
+
+    roots = Float64[]
+    residual(xi) = characteristic_residual(xi, s, t)
+    scan_intervals = 256
+    scan_grid = range(lower, upper; length=scan_intervals + 1)
+    left = lower
+    f_left = residual(left)
+    iszero(f_left) && append_unique_root!(roots, left)
+
+    for index in 1:scan_intervals
+        right = scan_grid[index + 1]
+        f_right = residual(right)
+
+        if iszero(f_right)
+            append_unique_root!(roots, right)
+        elseif !iszero(f_left) && signbit(f_left) != signbit(f_right)
+            root = refine_characteristic_root(s, t, left, right)
+            append_unique_root!(roots, root)
+        end
+
+        left = right
+        f_left = f_right
+    end
+
+    # The window endpoints have opposite signs, so at least one root must exist.
+    if isempty(roots)
+        push!(roots, refine_characteristic_root(s, t, lower, upper))
+    end
+
+    return roots
+end
+
+"""
+    solve_burgers_analytical(s, t)
+    solve_burgers_analytical(x, y, t)
+
+Exact entropy solution of the reduced Burgers problem. The two-argument form
+accepts a scalar or an array of s = x + y values. The three-argument form accepts
+vectors of x and y coordinates and returns an array with dimensions
+(Nx, Ny). Periodicity follows from the 4pi-periodic initial profile.
+"""
+function solve_burgers_analytical(s::Real, t::Real)
+    s_value = Float64(s)
+    t_value = Float64(t)
+    t_value < 0.0 && throw(ArgumentError("The exact solver requires t >= 0."))
+    iszero(t_value) && return initial_state(s_value)
+
+    roots = characteristic_roots(s_value, t_value)
+    best_root = first(roots)
+    best_value = Inf
+
+    for xi in roots
+        hopf_lax_value =
+            (s_value - xi)^2 / (4.0 * t_value) + initial_potential(xi)
+        if hopf_lax_value < best_value
+            best_value = hopf_lax_value
+            best_root = xi
+        end
+    end
+
+    return initial_state(best_root)
+end
+
+function solve_burgers_analytical(s::AbstractArray, t::Real)
+    return map(s_value -> solve_burgers_analytical(s_value, t), s)
+end
+
+function solve_burgers_analytical(
+    x::AbstractVector,
+    y::AbstractVector,
+    t::Real,
+)
+    s_grid = x .+ transpose(y)
+    return solve_burgers_analytical(s_grid, t)
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 18-161: action='replace'
+    - Replacing lines 18-161 with 166 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Problem Configuration and Coordinate Mapping ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Time Evolution Loop ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Visualization Dashboard ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Data Persistence and Verification ---
+NO CHANGE REQUIRED
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ The code implements the exact Method of Characteristics solution for the 2D inviscid Burgers equation on the doubly periodic domain [0,4π]^2 over t∈[0,2]. It uses the invariant s=x+y to reduce the problem to U_t+2UU_s=0 with U0(s)=1/3+(2/3)sin(s/2). For t>0 it solves the implicit characteristic equation ξ+2tU0(ξ)-s=0 over the bounded window [s-2t-ε, s+2t/3+ε], refines roots by bracketed Newton/bisection, and selects the entropy-satisfying root by minimizing the Hopf–Lax functional G(ξ)=(s-ξ)^2/(4t)+φ0(ξ). It reconstructs u(x,y,t)=U0(ξ*) on a 256×256 periodic grid excluding duplicate endpoints and evaluates 21 output states from t=0 to t=2 with dt_save=0.1. Snapshot times t=0,1,1.5,2 are plotted in a 1×4 dashboard with colorbars disabled and saved as summary_all.png. The t=2 shock checkpoint is included, verifying shock positions and left/right states against the strategy values.
+Proposed name:InviscidBurgers_2D_Periodic_Sin_xplusy_over2\Question :Let's solve the 2D Inviscid Burgers' equation.
+Domain: $(x,y) \in [0, 4\pi]^2$, $t \in [0, 2]$.
+BCs: Periodic in both x and y.
+
+Initial Condition:
+$$ u(x,y,0) = \frac{1}{3} + \frac{2}{3}\sin\left(\frac{x+y}{2}\right) $$
+
+The final plot must be saved as summary_all.png it should include snapshots of several timesteps
+
+Created project directory: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/
+Successfully saved code to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl
+Attempting to run /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl...
+
+--- [Streaming Output silently to /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl.out] ---
+--- [End of Stream. Exit Code: 0] ---
+✅ Successfully ran InviscidBurgers_2D_Periodic_Sin_xplusy_over2.jl.
+--- [No Traceback. Sending last 20 lines to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: APPROVED
+Debugger Analysis: The code executed successfully without runtime errors. Cell 4 generated the multi-snapshot summary_all.png plot, and Cell 5 completed NPZ verification and analytical shock checks. The GKS headless-operation message is a non-fatal plotting warning.
+--- 5. Calling Advisor Team ---
+--- Running Advisor Team (Fail-Fast Strategy) ---
+Attempting to create CHRONOLOGICAL consolidated report: consolidated_report_chronological.pdf
+Found 2 reportable files. Building PDF in chronological order...
+✅ Successfully created chronological report at: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/consolidated_report_chronological.pdf
+Human-readable PDF report created.
+--- Found plot: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/summary_all.png ---
+✅ Found 'summary_all.png' at: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/summary_all.png
+Proceeding to multimodal analysis...
+Encoding image from: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/summary_all.png
+DEBUG: Image resized to 800x186
+Image encoded. Base64 length: 143946
+Sending multimodal input to AdvisorAgent...
+DEBUG - Input type: <class 'list'>
+DEBUG - Is multimodal: True
+DEBUG - Input list length: 2
+>>> Using MULTIMODAL mode (direct LLM call)
+--- Advisor Markdown Report Received ---
+## Section 1: Status Decision
+
+* **Status:** **APPROVED**
+* **Reason:** Perfect Score Achieved. No further refinement possible. The exact Method of Characteristics was correctly preserved, including entropy-based root selection, and the completed solution passes the analytical shock checkpoints.
+
+## Section 2: Quantitative Scorecard
+
+* **Score Integrity:** **50/50**
+* **Score Accuracy:** **20/20**
+* **Score Details:** **15/15**
+* **Score Optimality:** **15/15**
+* **TOTAL SCORE:** **100/100**
+
+## Section 3: Forensic Analysis & Feedback
+
+### Observation
+
+* **Plot:** The four snapshots show the expected qualitative evolution:
+  * At \(t=0\), the field is a smooth diagonal sinusoidal pattern.
+  * At \(t=1\), the compressive portions have steepened while the solution remains smooth.
+  * At \(t=1.5\), the transition is nearly vertical, consistent with gradient catastrophe at the breaking time.
+  * At \(t=2\), two sharp diagonal shocks are visible, with no observable Gibbs ringing, numerical oscillations, or diffusive smearing beyond grid/plot sampling.
+* The solution retains the expected dependence on \(x+y\), diagonal symmetry, and doubly periodic structure.
+* **Execution:** The solver completed all 21 output times, generated `summary_all.png`, and saved `burgers.npz` with `usol.shape = (21,256,256)`. No crash, NaN/Inf warning, or incomplete output is reported.
+* **Analytical validation:** At \(t=2\), the logged shock positions are
+  \[
+  s\approx 7.616519,\qquad s\approx 20.182889,
+  \]
+  with \(u_L=0.971198\), \(u_R=-0.304532\), and jump \(1.27573\). These agree with the strategist’s analytical checkpoints. Moreover, \(u_L+u_R\approx 0.666666\), consistent with the predicted shock speed \(2/3\) in the reduced coordinate.
+* **Error-log check:** The exact phrase **“Minimum achieved error:” does not appear** in the supplied STDOUT tail. Therefore, no numerical error norm can be quoted, and its absence must not be interpreted as a measured zero error. Validation here is instead provided by the exact construction and analytical shock checks.
+
+### Diagnosis
+
+No failure phenomenon is detected. The solution exhibits the correct characteristic steepening, shock formation, and entropy-shock propagation. Because the method evaluates the exact entropy solution rather than marching a discretized PDE, there is no numerical-flux dissipation, CFL restriction, or time-integration error. Accuracy is limited only by floating-point/root-solving tolerance and pointwise grid sampling.
+
+The Hopf–Lax minimization supplies the required entropy branch selection, making the Method of Characteristics both exact and methodologically optimal for PINN ground-truth generation.
+
+### Targeted Improvements
+
+* **For Integrity:** None.
+* **For Accuracy:** None.
+* **For Details:** None. No additional mesh refinement or polynomial-degree adjustment is applicable or needed.
+* **For Optimality:** None. Preserve **Method of Characteristics (Analytical/Exact) + Entropy Condition Root Selection**; do not replace it with DGSEM, finite-volume, or spectral approximation.
+
+**Recommendation:** Approve the run and use `burgers.npz` as high-fidelity PINN training data.
+Parsing report with AdvisorParser...
+⚠️  Parser attempt 1/10 failed: ERROR: Missing keys: {'analysis', 'recommendations_for_planner'}. Required keys: {'analysis', 'recommendations_for_planner', 'status'}. Found: ['status', 'summary', 'data_saving', 'discrepancies']
+✅ Parser succeeded on attempt 2
+✅ Advisor APPROVED the scientific result.
+✅ Report updated: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/Experiment_Report.md
+--- Clearing agent short-term memories ---
+Chat history cleared.
+[HENA] log saved: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/logs/A_SciC/hena_A_2026_11_06_0206_20261106_014601.txt
+[usage] summary: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/usage/usage_open_Inviscid_Burgers_2D_stage1_20261106_014601_summary.json
+approved=True  project_dir=/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run4//InviscidBurgers_2D_Periodic_Sin_xplusy_over2/2026_11_06_0206/  log=/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run4/logs/A_SciC/hena_A_2026_11_06_0206_20261106_014601.txt

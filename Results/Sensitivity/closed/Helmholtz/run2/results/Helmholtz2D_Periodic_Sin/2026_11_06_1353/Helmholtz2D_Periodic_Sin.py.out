@@ -1,0 +1,33 @@
+Equation: Helmholtz2D
+Name: SS_Broyden
+NC: 200000
+NI: 512
+NB: 512
+NC_TEST: 100
+SEED: 9999
+EPOCHS: 5000
+N_LAYERS: 3
+HIDDEN: 30
+FEATURES: 1
+embedding_degree: 2
+lr_fact: 0.2
+eta: 0.01
+gamma: 0.999
+gamma_bfgs: 0.1
+gamma_grads: 0.99
+alpha: 0.999
+cap_RBA: 20
+max_RBA: None
+decay_rate: 0.9
+LR: 0.001
+decay_step: 5000
+Note: 
+batch_size: 20000
+k_samp: 1.0
+c_samp: 0.0
+phi: 1
+c_log: 1.0
+N_change: 100
+SS_BroydenvRBA-phi:1.00-c_log:1.00-bs:20000_k:1.00_N:100.00_Seed:9999
+(30, 30, 30, 1)
+2161

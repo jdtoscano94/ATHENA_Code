@@ -1,0 +1,42 @@
+Equation: Helmholtz
+Name: SS_Broyden
+NC: 200000
+NI: 512
+NB: 512
+NC_TEST: 100
+SEED: 9999
+EPOCHS: 10000
+N_LAYERS: 3
+HIDDEN: 30
+FEATURES: 1
+embedding_degree: 5
+lr_fact: 0.2
+eta: 0.01
+gamma: 0.999
+gamma_bfgs: 0.1
+gamma_grads: 0.99
+alpha: 0.999
+cap_RBA: 20
+max_RBA: None
+decay_rate: 0.9
+LR: 0.001
+decay_step: 5000
+Note: 
+batch_size: 20000
+k_samp: 1.0
+c_samp: 0.0
+phi: 1
+c_log: 1.0
+N_change: 100
+SS_BroydenvRBA-phi:1.00-c_log:1.00-bs:20000_k:1.00_N:100.00_Seed:9999
+(30, 30, 30, 1)
+2521
+Runtime: 2.11 ms/iter.
+RL2 error: 0.00435141
+Solution:
+RL2 error: 0.00435141
+Reconstructed parameters: RL2 error: 0.00435141
+Solution:
+Calculating PDE residuals for plotting...
+Residuals calculated. Min: 2.3856614461692516e-09, Max: 0.0002280824377578483
+Minimum achieved  RL2 error: 5.491462051369757e-07

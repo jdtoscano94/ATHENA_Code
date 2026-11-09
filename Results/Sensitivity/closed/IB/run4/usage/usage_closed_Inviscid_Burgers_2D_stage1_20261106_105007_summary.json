@@ -1,0 +1,263 @@
+{
+  "meta": {
+    "request": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Conceptualization_team/ATHENA_Request_Inviscid_Burgers_2D.json",
+    "problem": "Inviscid_Burgers_2D",
+    "run": "Inviscid_Burgers_2D",
+    "stage": 1,
+    "family": "A",
+    "team": "closed",
+    "max_iterations_all": 50,
+    "resumed_from": null,
+    "base_results_dir": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/IB/run4/results/",
+    "started": "2026-11-06T10:50:07"
+  },
+  "finished": "2026-11-06T10:55:45",
+  "wall_clock_s": 337.7,
+  "by_kind": {
+    "chat": {
+      "cache_read_tokens": 52906,
+      "calls": 32,
+      "chars": 0,
+      "input_tokens": 158471,
+      "n_texts": 0,
+      "output_tokens": 33637,
+      "reasoning_tokens": 24077,
+      "seconds": 312.264,
+      "total_tokens": 192108
+    },
+    "embed": {
+      "cache_read_tokens": 0,
+      "calls": 3,
+      "chars": 74,
+      "input_tokens": 0,
+      "n_texts": 3,
+      "output_tokens": 0,
+      "reasoning_tokens": 0,
+      "seconds": 0.708,
+      "total_tokens": 0
+    },
+    "exec": {
+      "cache_read_tokens": 0,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 0,
+      "n_texts": 0,
+      "output_tokens": 0,
+      "reasoning_tokens": 0,
+      "seconds": 23.8,
+      "total_tokens": 0
+    }
+  },
+  "by_role": {
+    "advisor_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 5985,
+      "n_texts": 0,
+      "output_tokens": 1108,
+      "reasoning_tokens": 767,
+      "seconds": 10.312,
+      "total_tokens": 7093
+    },
+    "advisor_parser": {
+      "cache_read_tokens": 256,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 2908,
+      "n_texts": 0,
+      "output_tokens": 1291,
+      "reasoning_tokens": 951,
+      "seconds": 15.79,
+      "total_tokens": 4199
+    },
+    "critic_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 3246,
+      "n_texts": 0,
+      "output_tokens": 247,
+      "reasoning_tokens": 0,
+      "seconds": 5.353,
+      "total_tokens": 3493
+    },
+    "debugger_agent": {
+      "cache_read_tokens": 0,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 8962,
+      "n_texts": 0,
+      "output_tokens": 950,
+      "reasoning_tokens": 0,
+      "seconds": 22.934,
+      "total_tokens": 9912
+    },
+    "inspector_agent": {
+      "cache_read_tokens": 1152,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 8564,
+      "n_texts": 0,
+      "output_tokens": 1342,
+      "reasoning_tokens": 946,
+      "seconds": 18.605,
+      "total_tokens": 9906
+    },
+    "naming_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 1270,
+      "n_texts": 0,
+      "output_tokens": 460,
+      "reasoning_tokens": 434,
+      "seconds": 4.737,
+      "total_tokens": 1730
+    },
+    "patcher_agent": {
+      "cache_read_tokens": 0,
+      "calls": 6,
+      "chars": 0,
+      "input_tokens": 15592,
+      "n_texts": 0,
+      "output_tokens": 7266,
+      "reasoning_tokens": 4873,
+      "seconds": 50.006,
+      "total_tokens": 22858
+    },
+    "planner_agent": {
+      "cache_read_tokens": 49450,
+      "calls": 8,
+      "chars": 0,
+      "input_tokens": 88326,
+      "n_texts": 0,
+      "output_tokens": 15830,
+      "reasoning_tokens": 12813,
+      "seconds": 121.004,
+      "total_tokens": 104156
+    },
+    "planner_parser_agent": {
+      "cache_read_tokens": 0,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 2206,
+      "n_texts": 0,
+      "output_tokens": 2509,
+      "reasoning_tokens": 2204,
+      "seconds": 21.245,
+      "total_tokens": 4715
+    },
+    "register_agent_parser": {
+      "cache_read_tokens": 128,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 2560,
+      "n_texts": 0,
+      "output_tokens": 443,
+      "reasoning_tokens": 386,
+      "seconds": 4.664,
+      "total_tokens": 3003
+    },
+    "retriever_agent": {
+      "cache_read_tokens": 0,
+      "calls": 7,
+      "chars": 74,
+      "input_tokens": 10395,
+      "n_texts": 3,
+      "output_tokens": 744,
+      "reasoning_tokens": 620,
+      "seconds": 16.101,
+      "total_tokens": 11139
+    },
+    "strategist_agent": {
+      "cache_read_tokens": 1792,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 2209,
+      "n_texts": 0,
+      "output_tokens": 1329,
+      "reasoning_tokens": 0,
+      "seconds": 19.768,
+      "total_tokens": 3538
+    },
+    "validator_agent": {
+      "cache_read_tokens": 128,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 6248,
+      "n_texts": 0,
+      "output_tokens": 118,
+      "reasoning_tokens": 83,
+      "seconds": 2.453,
+      "total_tokens": 6366
+    }
+  },
+  "by_model": {
+    "claude-sonnet-4-6": {
+      "cache_read_tokens": 0,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 8962,
+      "n_texts": 0,
+      "output_tokens": 950,
+      "reasoning_tokens": 0,
+      "seconds": 22.934,
+      "total_tokens": 9912
+    },
+    "gemini-3.1-pro-preview": {
+      "cache_read_tokens": 49450,
+      "calls": 22,
+      "chars": 0,
+      "input_tokens": 123774,
+      "n_texts": 0,
+      "output_tokens": 27917,
+      "reasoning_tokens": 21711,
+      "seconds": 222.697,
+      "total_tokens": 151691
+    },
+    "gpt-5.4": {
+      "cache_read_tokens": 1792,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 5455,
+      "n_texts": 0,
+      "output_tokens": 1576,
+      "reasoning_tokens": 0,
+      "seconds": 25.121,
+      "total_tokens": 7031
+    },
+    "grok-4-1-fast-reasoning": {
+      "cache_read_tokens": 1664,
+      "calls": 6,
+      "chars": 0,
+      "input_tokens": 20280,
+      "n_texts": 0,
+      "output_tokens": 3194,
+      "reasoning_tokens": 2366,
+      "seconds": 41.512,
+      "total_tokens": 23474
+    },
+    "models/gemini-embedding-001": {
+      "cache_read_tokens": 0,
+      "calls": 3,
+      "chars": 74,
+      "input_tokens": 0,
+      "n_texts": 3,
+      "output_tokens": 0,
+      "reasoning_tokens": 0,
+      "seconds": 0.708,
+      "total_tokens": 0
+    }
+  },
+  "result": {
+    "is_approved": true,
+    "project_dir": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/IB/run4/results//InviscidBurgers2D_Periodic_Sin/2026_11_06_1054/",
+    "filename": "InviscidBurgers2D_Periodic_Sin.jl",
+    "refinement_iterations": 2,
+    "log_path": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/IB/run4/logs/A_SciC/hena_A_2026_11_06_1054_20261106_105007.txt",
+    "stop_reason": null,
+    "last_checkpoint_dir": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/IB/run4/results//InviscidBurgers2D_Periodic_Sin/2026_11_06_1054/",
+    "error": null
+  }
+}

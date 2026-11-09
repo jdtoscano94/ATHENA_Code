@@ -1,0 +1,249 @@
+{
+  "meta": {
+    "request": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Conceptualization_team/ATHENA_Request_Inviscid_Burgers_2D.json",
+    "problem": "Inviscid_Burgers_2D",
+    "run": "Inviscid_Burgers_2D",
+    "stage": 1,
+    "family": "A",
+    "team": "open",
+    "max_iterations_all": 50,
+    "base_results_dir": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run3/",
+    "started": "2026-11-06T01:52:55"
+  },
+  "finished": "2026-11-06T02:45:10",
+  "wall_clock_s": 3134.7,
+  "by_kind": {
+    "chat": {
+      "cache_read_tokens": 0,
+      "calls": 44,
+      "chars": 0,
+      "input_tokens": 279993,
+      "n_texts": 0,
+      "output_tokens": 178258,
+      "reasoning_tokens": 0,
+      "seconds": 1300.152,
+      "total_tokens": 458251
+    },
+    "embed": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 69,
+      "input_tokens": 0,
+      "n_texts": 1,
+      "output_tokens": 0,
+      "reasoning_tokens": 0,
+      "seconds": 0.293,
+      "total_tokens": 0
+    },
+    "exec": {
+      "cache_read_tokens": 0,
+      "calls": 4,
+      "chars": 0,
+      "input_tokens": 0,
+      "n_texts": 0,
+      "output_tokens": 0,
+      "reasoning_tokens": 0,
+      "seconds": 1831.629,
+      "total_tokens": 0
+    }
+  },
+  "by_role": {
+    "advisor_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 6064,
+      "n_texts": 0,
+      "output_tokens": 4954,
+      "reasoning_tokens": 0,
+      "seconds": 66.479,
+      "total_tokens": 11018
+    },
+    "advisor_parser": {
+      "cache_read_tokens": 0,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 3556,
+      "n_texts": 0,
+      "output_tokens": 1776,
+      "reasoning_tokens": 0,
+      "seconds": 10.478,
+      "total_tokens": 5332
+    },
+    "critic_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 4083,
+      "n_texts": 0,
+      "output_tokens": 3255,
+      "reasoning_tokens": 0,
+      "seconds": 49.211,
+      "total_tokens": 7338
+    },
+    "debugger_agent": {
+      "cache_read_tokens": 0,
+      "calls": 4,
+      "chars": 0,
+      "input_tokens": 21454,
+      "n_texts": 0,
+      "output_tokens": 3792,
+      "reasoning_tokens": 0,
+      "seconds": 63.189,
+      "total_tokens": 25246
+    },
+    "inspector_agent": {
+      "cache_read_tokens": 0,
+      "calls": 4,
+      "chars": 0,
+      "input_tokens": 26482,
+      "n_texts": 0,
+      "output_tokens": 59199,
+      "reasoning_tokens": 0,
+      "seconds": 229.076,
+      "total_tokens": 85681
+    },
+    "naming_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 1215,
+      "n_texts": 0,
+      "output_tokens": 400,
+      "reasoning_tokens": 0,
+      "seconds": 2.49,
+      "total_tokens": 1615
+    },
+    "patcher_agent": {
+      "cache_read_tokens": 0,
+      "calls": 9,
+      "chars": 0,
+      "input_tokens": 26139,
+      "n_texts": 0,
+      "output_tokens": 30464,
+      "reasoning_tokens": 0,
+      "seconds": 131.341,
+      "total_tokens": 56603
+    },
+    "planner_agent": {
+      "cache_read_tokens": 0,
+      "calls": 13,
+      "chars": 0,
+      "input_tokens": 166778,
+      "n_texts": 0,
+      "output_tokens": 36647,
+      "reasoning_tokens": 0,
+      "seconds": 582.809,
+      "total_tokens": 203425
+    },
+    "planner_parser_agent": {
+      "cache_read_tokens": 0,
+      "calls": 4,
+      "chars": 0,
+      "input_tokens": 4849,
+      "n_texts": 0,
+      "output_tokens": 1292,
+      "reasoning_tokens": 0,
+      "seconds": 6.942,
+      "total_tokens": 6141
+    },
+    "register_agent_parser": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 3652,
+      "n_texts": 0,
+      "output_tokens": 1285,
+      "reasoning_tokens": 0,
+      "seconds": 6.631,
+      "total_tokens": 4937
+    },
+    "retriever_agent": {
+      "cache_read_tokens": 0,
+      "calls": 3,
+      "chars": 69,
+      "input_tokens": 6270,
+      "n_texts": 1,
+      "output_tokens": 329,
+      "reasoning_tokens": 0,
+      "seconds": 2.679,
+      "total_tokens": 6599
+    },
+    "strategist_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 2216,
+      "n_texts": 0,
+      "output_tokens": 33886,
+      "reasoning_tokens": 0,
+      "seconds": 144.487,
+      "total_tokens": 36102
+    },
+    "validator_agent": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 0,
+      "input_tokens": 7235,
+      "n_texts": 0,
+      "output_tokens": 979,
+      "reasoning_tokens": 0,
+      "seconds": 4.633,
+      "total_tokens": 8214
+    }
+  },
+  "by_model": {
+    "deepseek-v4.1-flash:1017": {
+      "cache_read_tokens": 0,
+      "calls": 23,
+      "chars": 0,
+      "input_tokens": 72163,
+      "n_texts": 0,
+      "output_tokens": 94745,
+      "reasoning_tokens": 0,
+      "seconds": 389.344,
+      "total_tokens": 166908
+    },
+    "glm-5.3": {
+      "cache_read_tokens": 0,
+      "calls": 2,
+      "chars": 0,
+      "input_tokens": 9451,
+      "n_texts": 0,
+      "output_tokens": 34865,
+      "reasoning_tokens": 0,
+      "seconds": 149.12,
+      "total_tokens": 44316
+    },
+    "kimi-k3.1-pro": {
+      "cache_read_tokens": 0,
+      "calls": 19,
+      "chars": 0,
+      "input_tokens": 198379,
+      "n_texts": 0,
+      "output_tokens": 48648,
+      "reasoning_tokens": 0,
+      "seconds": 761.688,
+      "total_tokens": 247027
+    },
+    "models/gemini-embedding-001": {
+      "cache_read_tokens": 0,
+      "calls": 1,
+      "chars": 69,
+      "input_tokens": 0,
+      "n_texts": 1,
+      "output_tokens": 0,
+      "reasoning_tokens": 0,
+      "seconds": 0.293,
+      "total_tokens": 0
+    }
+  },
+  "result": {
+    "is_approved": true,
+    "project_dir": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/open/IB/run3//InviscidBurgers2D_Periodic_Sin_x_plus_y_over_2_ICs/2026_11_06_0227/",
+    "filename": "InviscidBurgers2D_Periodic_Sin_x_plus_y_over_2_ICs.jl",
+    "refinement_iterations": 4,
+    "log_path": "/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/run_logs/sensitivity/open/IB/run3/logs/A_SciC/hena_A_2026_11_06_0227_20261106_015255.txt",
+    "error": null
+  }
+}

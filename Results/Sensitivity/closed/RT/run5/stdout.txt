@@ -1,0 +1,1063 @@
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciC.py:267: SyntaxWarning: invalid escape sequence '\Q'
+  print(f"Proposed name:{new_code_details['filename']}\Question :{new_code_details['description']}\n")
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciC.py:973: SyntaxWarning: invalid escape sequence '\p'
+  * **Governing Equations:** [Write the Full PDE System in LaTeX. Do not just name it. e.g., $$\partial_t \rho + \nabla \cdot (\rho \mathbf  v  ) = ... $$]
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciC.py:1350: SyntaxWarning: invalid escape sequence '\D'
+  * *Efficiency:* Increasing Polynomial Degree (`polydeg`) is often better than mesh refinement for accuracy, but restricts the time step ($\Delta t \propto 1/N^2$).
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciML_PIML.py:354: SyntaxWarning: invalid escape sequence '\Q'
+  print(f"Proposed name:{new_code_details['filename']}\Question :{new_code_details['description']}\n")
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciML_PIML.py:963: SyntaxWarning: invalid escape sequence '\p'
+  - **Governing Equation:** What PDE/system? (e.g., "Burgers: $\partial_t u + u\partial_x u = \\nu \partial^2_x u$") You should also Explicitly write the PDE residual.
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciML_PIML.py:1215: SyntaxWarning: invalid escape sequence '\p'
+  * **2D:** Streamfunction $\psi$ ($u=\psi_y, v=-\psi_x$).
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciML_PIML.py:1677: SyntaxWarning: invalid escape sequence '\p'
+  * **THE PHYSICS REASON:** PINNs require computing derivatives ($\partial u / \partial x$) with respect to the *inputs*. If you normalize outside the computational graph, the gradients are detached or scaled incorrectly.
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciML_PIML.py:1812: SyntaxWarning: invalid escape sequence '\s'
+  * **Trigger:** If the Strategy or User Question provides an **Exact Solution** (e.g., $u_exact = -\sin(\pi x)$) for ICs or Error Metrics.
+/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/crunch_llm/code/teams_SciML_PIML.py:2056: SyntaxWarning: invalid escape sequence '\i'
+  * *Symptoms:* Loss $\to \infty$, NaNs, or massive unphysical values (e.g., Negative Density).
+
+======================================================================
+ATHENA :: Rayleigh_Taylor_2D_Euler
+======================================================================
+
+--- Stage 1 (family A): Numerical solution and validation (SciC). ---
+[db] db_path: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/database_NM -> /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/dbs/database_NM
+[db] db_functions: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/database_Modules_ollama -> /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/dbs/database_Modules_ollama
+[db] db_functions_ollama: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Documents/database_Modules_ollama -> /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/dbs/database_Modules_ollama
+[usage] tracking roles: strategist_agent=gpt-5.4, critic_agent=gpt-5.4, retriever_agent=gemini-3.1-pro-preview, retriever_agent.embeddings=models/gemini-embedding-001, validator_agent=grok-4-1-fast-reasoning, planner_agent=gemini-3.1-pro-preview, planner_parser_agent=gemini-3.1-pro-preview, patcher_agent=gemini-3.1-pro-preview, inspector_agent=grok-4-1-fast-reasoning, naming_agent=gemini-3.1-pro-preview, debugger_agent=claude-sonnet-4-6, advisor_agent=gemini-3.1-pro-preview, advisor_agent.embeddings=models/gemini-embedding-001, advisor_parser=grok-4-1-fast-reasoning, register_agent_parser=grok-4-1-fast-reasoning
+[HENA] family=A | logging to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/logs/A_SciC/hena_A_Rayleigh_Taylor_2D_Euler_stage1_20261106_105008.txt
+--- Starting a new run (no resume directory specified). ---
+
+
+--- Code Creation Iteration: 0 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- 1. Calling Strategist Team ---
+
+=== 🧠 Starting Strategy Team (Proposer-Critic Loop) ===
+
+--- 🔄 Strategy Iteration 1/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**
+
+**1. Mathematical Specification (Code-Ready Extraction)**
+
+* **Governing Equations:**
+
+For the 2D compressible Euler equations with gravity in the positive \(y\)-direction, evolve the conserved variables
+\[
+\mathbf{U} =
+\begin{bmatrix}
+\rho \\
+\rho u \\
+\rho v \\
+E
+\end{bmatrix},
+\]
+with
+\[
+E = \frac{p}{\gamma-1} + \frac{1}{2}\rho\left(u^2+v^2\right).
+\]
+
+The PDE system is
+\[
+\partial_t \rho + \partial_x (\rho u) + \partial_y (\rho v) = 0,
+\]
+\[
+\partial_t (\rho u) + \partial_x (\rho u^2 + p) + \partial_y (\rho u v) = 0,
+\]
+\[
+\partial_t (\rho v) + \partial_x (\rho u v) + \partial_y (\rho v^2 + p) = \rho g,
+\]
+\[
+\partial_t E + \partial_x \bigl(u(E+p)\bigr) + \partial_y \bigl(v(E+p)\bigr) = \rho g v.
+\]
+
+Equation of state:
+\[
+p = (\gamma-1)\left(E - \frac{1}{2}\rho(u^2+v^2)\right).
+\]
+
+* **Domain:**
+\[
+(x,y) \in [0,0.25]\times[0,1.0], \qquad t\in[0,3.0].
+\]
+
+* **Boundary Conditions:**
+  * \(x=0\) and \(x=0.25\): Periodic.
+  * \(y=0\) and \(y=1\): Reflective / free-slip walls:
+\[
+v=0,
+\]
+with mirrored normal momentum and unchanged tangential velocity at the wall.
+
+* **Initial Conditions:**
+
+Density:
+\[
+\rho(x,y,0)=\rho(y)=2.0+(1.0-2.0)\cdot \frac{1}{2}\left(1+\tanh\left(50(y-0.5)\right)\right).
+\]
+
+Pressure:
+\[
+p(x,y,0)=p(y)=
+\begin{cases}
+2y+1, & y<0.5,\\[4pt]
+y+1.5, & y\ge 0.5.
+\end{cases}
+\]
+
+Horizontal velocity:
+\[
+u(x,y,0)=0.
+\]
+
+Local sound speed:
+\[
+c(x,y,0)=\sqrt{\frac{\gamma p(y)}{\rho(y)}}.
+\]
+
+Vertical velocity:
+\[
+v(x,y,0)=-0.025\, c(x,y,0)\,\cos(8\pi x)\,\sin(\pi y)^6.
+\]
+
+Total energy:
+\[
+E(x,y,0)=\frac{p(y)}{\gamma-1}+\frac{1}{2}\rho(y)\left(u(x,y,0)^2+v(x,y,0)^2\right).
+\]
+
+* **Constants & Parameters:**
+\[
+\gamma=1.4,\qquad g=1.0,\qquad \mu=0,\qquad k=0.
+\]
+\[
+\rho_{\text{heavy}}=2.0,\qquad \rho_{\text{light}}=1.0.
+\]
+
+* **Expected Physics:**
+Rayleigh-Taylor growth from the perturbed density interface near \(y=0.5\), followed by nonlinear roll-up and compressible buoyancy-driven mixing. Density is the primary structural field.
+
+---
+
+**2. Strategic Methodology**
+
+* Can obtain an exact solution or similar?  
+No. This is a fully nonlinear 2D compressible instability problem with variable density, gravity source terms, wall reflections, and nonlinear interface evolution. No useful exact solution or Method of Characteristics reduction is feasible for the full problem.
+
+* **Main method selection:**  
+Use **Discontinuous Galerkin Spectral Element Method in 2D plus time**.
+
+Reason: the problem is hyperbolic, compressible, inviscid, and develops sharp gradients around the interface as the instability grows. DGSEM is the correct robust high-order method for this regime.
+
+---
+
+**3. Implementation Requirements (CRITICAL)**
+
+* **Configuration:**  
+use template defaults.
+
+* **3.0.1 Adaptive Mesh Refinement & Shock Capturing:**
+
+**AMR/Shock-capturing variable: Density \(\rho\).**
+
+**Justification:**  
+The dominant coherent structure is the Rayleigh-Taylor interface between heavy and light fluids. Density remains the cleanest marker of that interface throughout the evolution. Velocity will become globally active and increasingly noisy as the instability transitions into complex buoyant motion, so refining on velocity would waste resolution across broad regions. Pressure is comparatively smoother because of compressibility and hydrostatic structure. Therefore, density is the best signal-to-noise variable for both refinement and any troubled-cell/shock-interface sensing.
+
+* **3.1 Advisor-Mandated Adjustments (Overrides):**  
+None.
+
+---
+
+**4. Visualization Strategy:**
+
+* **Field Selection (Analysis):**  
+Plot:
+1. **Density \(\rho\)** — primary instability/interface field.
+2. **Vertical velocity \(v\)** — shows buoyant motion and mode growth.
+
+* **Task:**  
+Plot these fields at **4 distinct time steps**. Recommended:
+\[
+t=\{0.0,\ 1.0,\ 2.0,\ 3.0\}.
+\]
+
+* **Layout:**  
+Rows = selected fields \((\rho,\ v)\), Columns = time.
+
+* **Saving Data:**  
+Save the **full solution state** at frequent intervals, e.g.
+\[
+dt_{\text{save}}=0.1.
+\]
+
+* **Constraints:**  
+  * Save figure as: `summary_all.png`
+  * Instruct the agent to **disable colorbars**: `colorbar=false`
+  * Use automatic scaling; do not enforce fixed colormaps.
+  * Plot only the primary variables above.
+
+---
+
+**5. Cross-Validation & Data Integration (Conditional)**
+
+No external reference data or sensor files were provided.  
+No relative \(L_2\) error or pointwise sensor comparison is required.
+
+---
+
+**REQUIRED COMPONENTS**
+
+**Main Method:**
+Discontinuous Galerkin Spectral Element Method in 2D plus time
+
+**Enhancements:**
+Shock Capturing  
+Adaptive Mesh Refinement
+
+--- Critic report---
+[REJECTED]
+
+**Critique:** The plan micromanages numerical/visualization details that were not requested, including specific plot times and `dt_save=0.1`. The rest of the plan is largely compliant, but these unnecessary fixed parameters violate the default-template rule.
+
+**Requirement:** Remove unrequested specific numerical scheduling choices such as the exact snapshot times and `dt_save=0.1`, and keep only the required output instruction (`summary_all.png`) plus high-level visualization guidance.
+
+
+--- 🔄 Strategy Iteration 2/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**
+
+**1. Mathematical Specification (Code-Ready Extraction)**
+
+* **Governing Equations:**
+\[
+\partial_t \rho + \partial_x (\rho u) + \partial_y (\rho v) = 0,
+\]
+\[
+\partial_t (\rho u) + \partial_x (\rho u^2 + p) + \partial_y (\rho u v) = 0,
+\]
+\[
+\partial_t (\rho v) + \partial_x (\rho u v) + \partial_y (\rho v^2 + p) = \rho g,
+\]
+\[
+\partial_t E + \partial_x \bigl(u(E+p)\bigr) + \partial_y \bigl(v(E+p)\bigr) = \rho g v,
+\]
+with
+\[
+E=\frac{p}{\gamma-1}+\frac{1}{2}\rho(u^2+v^2),
+\qquad
+p=(\gamma-1)\left(E-\frac{1}{2}\rho(u^2+v^2)\right).
+\]
+
+* **Domain:**
+\[
+(x,y)\in[0,0.25]\times[0,1.0], \qquad t\in[0,3.0].
+\]
+
+* **Boundary Conditions:**
+  * \(x\)-direction: periodic.
+  * \(y=0\) and \(y=1\): reflective / free-slip walls with no penetration,
+\[
+v=0.
+\]
+
+* **Initial Conditions:**
+
+Density:
+\[
+\rho(x,y,0)=2.0+(1.0-2.0)\cdot \frac{1}{2}\left(1+\tanh\left(50(y-0.5)\right)\right).
+\]
+
+Pressure:
+\[
+p(x,y,0)=
+\begin{cases}
+2y+1, & y<0.5,\\[4pt]
+y+1.5, & y\ge 0.5.
+\end{cases}
+\]
+
+Horizontal velocity:
+\[
+u(x,y,0)=0.
+\]
+
+Local sound speed:
+\[
+c(x,y,0)=\sqrt{\frac{\gamma p(x,y,0)}{\rho(x,y,0)}}.
+\]
+
+Vertical velocity:
+\[
+v(x,y,0)=-0.025\,c(x,y,0)\cos(8\pi x)\sin(\pi y)^6.
+\]
+
+Total energy:
+\[
+E(x,y,0)=\frac{p(x,y,0)}{\gamma-1}+\frac{1}{2}\rho(x,y,0)\left(u(x,y,0)^2+v(x,y,0)^2\right).
+\]
+
+* **Constants & Parameters:**
+\[
+\gamma=1.4,\qquad g=1.0,\qquad \mu=0,\qquad k=0.
+\]
+
+* **Expected Physics:**
+Rayleigh-Taylor instability of a heavy lower fluid beneath a light upper fluid, seeded by a vertical-velocity perturbation. Expect interface growth, plume/spike formation, and progressively sharper density gradients.
+
+---
+
+**2. Strategic Methodology**
+
+* Can obtain an exact solution or similar?  
+No. This is a nonlinear 2D compressible instability with gravity, wall reflections, and evolving interface deformation. No practical exact analytical solution or useful Method of Characteristics reduction exists for the full problem.
+
+* **Selected main method:**  
+Use **Discontinuous Galerkin Spectral Element Method in 2D plus time**.
+
+This is the correct choice for an inviscid compressible hyperbolic system with interface steepening and possible localized shock-like structures.
+
+---
+
+**3. Implementation Requirements (CRITICAL)**
+
+* **Configuration:**  
+use template defaults.
+
+* **3.0.1 Adaptive Mesh Refinement & Shock Capturing:**
+
+**AMR/Shock-capturing variable: \(\rho\) (density).**
+
+**Justification:**  
+Density is the cleanest marker of the Rayleigh-Taylor interface and remains localized around the physically important structures. Velocity becomes broadly active and less selective as the instability develops, so it is inferior for targeted refinement. Pressure is smoother and less directly tied to the interface geometry. Therefore, density is superior for AMR and shock/interface sensing.
+
+* **3.1 Advisor-Mandated Adjustments (Overrides):**  
+None.
+
+---
+
+**4. Visualization Strategy:**
+
+* **Field Selection (Analysis):**
+  * **Density \(\rho\)** as the primary field.
+  * **Vertical velocity \(v\)** as the secondary field.
+
+* **Task:**  
+Plot these fields at **4 distinct time steps**.
+
+* **Layout:**  
+Rows = fields, Columns = time.
+
+* **Saving Data:**  
+Save the full solution state at frequent intervals for ground truth.
+
+* **Constraints:**
+  * Save as `summary_all.png`
+  * **Disable colorbars**: `colorbar=false`
+  * Use automatic scaling.
+  * Plot only the selected primary variables.
+
+---
+
+**5. Cross-Validation & Data Integration (Conditional)**
+
+No external reference data or sensor files were provided. No cross-validation step is required.
+
+---
+
+**REQUIRED COMPONENTS**
+
+**Main Method:**
+Discontinuous Galerkin Spectral Element Method in 2D plus time
+
+**Enhancements:**
+Shock Capturing  
+Adaptive Mesh Refinement
+
+--- Critic report---
+[REJECTED]
+
+**Critique:** The visualization section still micromanages unrequested details by prescribing exactly “4 distinct time steps” and forcing `colorbar=false`. Those are specific implementation/display controls not required by the user or advisor.
+
+**Requirement:** Remove the fixed number of snapshot times and the explicit `colorbar=false` directive. Keep only high-level plotting guidance and the mandatory output filename `summary_all.png`.
+
+
+--- 🔄 Strategy Iteration 3/5 ---
+--- Strategy Report Received ---
+**1. Problem Statement**
+
+**1. Mathematical Specification (Code-Ready Extraction)**
+* **Governing Equations:**
+\[
+\partial_t \rho + \partial_x (\rho u) + \partial_y (\rho v) = 0,
+\]
+\[
+\partial_t (\rho u) + \partial_x (\rho u^2 + p) + \partial_y (\rho u v) = 0,
+\]
+\[
+\partial_t (\rho v) + \partial_x (\rho u v) + \partial_y (\rho v^2 + p) = \rho g,
+\]
+\[
+\partial_t E + \partial_x \bigl(u(E+p)\bigr) + \partial_y \bigl(v(E+p)\bigr) = \rho g v,
+\]
+with
+\[
+E=\frac{p}{\gamma-1}+\frac{1}{2}\rho(u^2+v^2),
+\qquad
+p=(\gamma-1)\left(E-\frac{1}{2}\rho(u^2+v^2)\right).
+\]
+
+* **Domain:**
+\[
+(x,y)\in[0,0.25]\times[0,1.0], \qquad t\in[0,3.0].
+\]
+
+* **Boundary Conditions:**
+  * \(x\)-direction: periodic.
+  * \(y=0\) and \(y=1\): reflective / free-slip walls with no penetration,
+\[
+v=0.
+\]
+
+* **Initial Conditions:**
+
+Density:
+\[
+\rho(x,y,0)=2.0+(1.0-2.0)\cdot \frac{1}{2}\left(1+\tanh\left(50(y-0.5)\right)\right).
+\]
+
+Pressure:
+\[
+p(x,y,0)=
+\begin{cases}
+2y+1, & y<0.5,\\[4pt]
+y+1.5, & y\ge 0.5.
+\end{cases}
+\]
+
+Horizontal velocity:
+\[
+u(x,y,0)=0.
+\]
+
+Local sound speed:
+\[
+c(x,y,0)=\sqrt{\frac{\gamma p(x,y,0)}{\rho(x,y,0)}}.
+\]
+
+Vertical velocity:
+\[
+v(x,y,0)=-0.025\,c(x,y,0)\cos(8\pi x)\sin(\pi y)^6.
+\]
+
+Total energy:
+\[
+E(x,y,0)=\frac{p(x,y,0)}{\gamma-1}+\frac{1}{2}\rho(x,y,0)\left(u(x,y,0)^2+v(x,y,0)^2\right).
+\]
+
+* **Constants & Parameters:**
+\[
+\gamma=1.4,\qquad g=1.0,\qquad \mu=0,\qquad k=0.
+\]
+
+* **Expected Physics:**
+Rayleigh-Taylor instability of a dense lower fluid beneath a lighter upper fluid, triggered by the imposed vertical-velocity perturbation. Expect interface growth, rising light-fluid bubbles, falling heavy-fluid spikes, and sharpening density gradients.
+
+---
+
+**2. Strategic Methodology**
+* Can obtain an exact solution or similar?  
+No. This is a nonlinear 2D compressible instability with gravity and evolving interface deformation. No useful exact analytical solution is available.
+
+* **Selected main method:**  
+Use **Discontinuous Galerkin Spectral Element Method in 2D plus time**.
+
+This is the best match for an inviscid compressible hyperbolic system with steep gradients and possible localized nonsmooth features.
+
+---
+
+**3. Implementation Requirements (CRITICAL)**
+* **Configuration:**  
+use template defaults.
+
+* **3.0.1 Adaptive Mesh Refinement & Shock Capturing:**
+
+**AMR/Shock-capturing variable: density \(\rho\).**
+
+**Justification:**  
+Density is the clearest structural marker of the Rayleigh-Taylor interface and remains localized around the physically important mixing structures. Velocity becomes broadly active as the instability develops and is less selective for refinement. Pressure is smoother and less diagnostic of interface position. Density is therefore the correct refinement and shock/interface sensing variable.
+
+* **3.1 Advisor-Mandated Adjustments (Overrides):**  
+None.
+
+---
+
+**4. Visualization Strategy:**
+* **Field Selection (Analysis):**
+  * **Density \(\rho\)** as the primary field.
+  * **Vertical velocity \(v\)** as the secondary field.
+
+* **Layout:**  
+Arrange the selected fields clearly across representative times.
+
+* **Saving Data:**  
+Save the full solution state at regular intervals for ground truth and post-processing.
+
+* **Constraints:**
+  * Save the figure as `summary_all.png`
+  * Use automatic visual scaling.
+  * Plot only the selected primary variables.
+
+---
+
+**5. Cross-Validation & Data Integration (Conditional)**
+No external reference data or sensor files were provided. No cross-validation step is required.
+
+---
+
+**REQUIRED COMPONENTS**
+
+**Main Method:**
+Discontinuous Galerkin Spectral Element Method in 2D plus time
+
+**Enhancements:**
+Shock Capturing  
+Adaptive Mesh Refinement
+
+--- Critic report---
+[APPROVED]
+
+**Validation:**  
+1. **Hallucination Check passed:** The **Main Method** is exactly **Discontinuous Galerkin Spectral Element Method in 2D plus time**, which is in the Reference Toolbox. Enhancements (Shock Capturing, Adaptive Mesh Refinement) are correctly separated from the Main Method.  
+2. **Physics Consistency Check passed:** This is a 2D nonlinear compressible Euler instability problem with gravity and walls; DGSEM is an appropriate toolbox method for this hyperbolic system.  
+2.5 **Exact Solution Abandonment Check passed:** Section 2 explicitly states that no useful exact analytical solution is available, so selecting a numerical method is justified.  
+3. **Redundancy Check passed:** The trial history is empty, so this configuration does not repeat any previously failed run.  
+4. **Micromanagement Check passed:** The strategist uses template defaults and no longer imposes unnecessary numerical parameters or overly specific plotting controls.  
+5. **Data Blindness Check passed:** No external data files or sensor/reference datasets were provided, and the Cross-Validation section correctly states that no such step is required.  
+6. **Compliance Check passed:** The plan preserves the user’s explicit requirements, including compressible Euler with \(\gamma=1.4\), gravity in the **positive \(y\)-direction**, periodic \(x\)-boundaries, reflective/free-slip \(y\)-walls, the specified density/pressure/velocity formulas, domain, time interval, and output filename `summary_all.png`.  
+7. **Lazy Specification Check passed:** Section 1 explicitly writes out the governing equations and the initial-condition formulas for density, pressure, velocity, sound speed, and total energy in code-ready mathematical form.  
+8. **Advisor Compliance Check passed:** The Advisor Report is empty, so listing “None” under advisor-mandated adjustments is compliant.
+
+--- 2. Calling Collection Team ---
+--- Retrieval Iteration: 0 ---
+Retriever Message:
+[cNS_DGSEM.jl]
+
+**Justification**
+Retrieved file matches the Main Method (Discontinuous Galerkin Spectral Element Method) and is compatible with the requested 2D Time-dependent formulation.
+Validator Message:
+APPROVED
+The retrieved 2D DGSEM code with AMR and hybrid shock capturing directly implements the requested numerical method and enhancements.
+Approval Status: True
+✅ Retrieval loop approved file: cNS_DGSEM.jl
+
+--- Retrieved template: cNS_DGSEM.jl (First 5 lines) ---
+# CODE ANALYSIS (PART 1 of 13)
+# DESCRIPTION:
+#
+# 
+#   method: Discontinuous Galerkin Spectral Element Method (DGSEM) with Hybrid Shock Capturing (DG-FV),
+---------------------------------------------------
+
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: **Context:** The framework will be adapted to solve the 2D inviscid Compressible Euler equations for a Rayleigh-Taylor instability using DGSEM with density-based shock capturing and AMR.
+
+**Mapping:**
+- Cell 1 (Solver and Discretization Initialization): Keep - Standard imports are sufficient.
+- Cell 2 (Physics Model Definition): Modify - Remove the Navier-Stokes parabolic extension since the problem is strictly inviscid ($\mu=0, k=0$).
+- Cell 3 (Initial Conditions and Source Terms): Modify - Implement the Rayleigh-Taylor initial conditions (density, pressure, velocity perturbations) and the gravity source term.
+- Cell 4 (Spatial Discretization & Hybrid Shock Capturing): Modify - Change the shock capturing indicator variable from velocity magnitude to density as mandated.
+- Cell 5 (Computational Domain & Adaptive Mesh Topology): Modify - Update domain bounds to $[0, 0.25] \times [0, 1.0]$ and set periodicity to `(true, false)`.
+- Cell 6 (General Boundary Condition Specification & System Assembly): Modify - Remove parabolic boundary conditions, set slip walls for $y$-boundaries, and switch to `SemidiscretizationHyperbolic`.
+- Cell 7 (Dynamic Adaptive Mesh Refinement (AMR) Strategy): Modify - Change the AMR indicator variable from velocity magnitude to density.
+- Cell 8 (Data I/O & Surrogate Interoperability): Keep - Standard NPZ export of primitive variables is appropriate.
+- Cell 9 (ODE System Formulation & Time-Loop Control): Modify - Update `tspan` to `(0.0, 3.0)`.
+- Cell 10 (Time Integration Loop): Keep - Standard explicit time-stepping is appropriate.
+- Cell 11 (Data Regularization (Rasterization)): Keep - Helper function remains valid.
+- Cell 12 (Post-Processing & Temporal Diagnostics): Modify - Update plotting logic to only plot the selected primary variables (Density $\rho$ and Vertical velocity $v$) and use automatic visual scaling.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 10', 'Cell 11', 'Cell 12'])
+Identified Cells: dict_keys(['Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6', 'Cell 7', 'Cell 9', 'Cell 12'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Solver and Discretization Initialization ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Physics Model Definition (Compressible Navier-Stokes) ---
+  - [Planner]: Instructions received:
+Action: The problem is strictly inviscid ($\mu=0, k=0$) as per the strategy report. The Navier-Stokes parabolic extension must be removed, leaving only the Compressible Euler equations.
+
+New Code (lines 22-27):
+```julia
+equations = CompressibleEulerEquations2D(1.4)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 22-27: action='replace'
+    - Replacing lines 22-27 with 1 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Initial Conditions and Source Terms (Lid-Driven Cavity) ---
+  - [Planner]: Instructions received:
+Action: The initial conditions and source terms must be updated to match the Rayleigh-Taylor instability problem. The initial condition requires specific density, pressure, and velocity profiles, and the source term must include gravity ($g=1.0$) acting on the y-momentum and energy equations. The `velocity_magnitude` function is removed as density will be used for shock capturing and AMR.
+
+New Code (lines 18-37):
+```julia
+@inline function initial_condition_rt(x, t, equations::CompressibleEulerEquations2D)
+    rho = 2.0 + (1.0 - 2.0) * 0.5 * (1.0 + tanh(50.0 * (x[2] - 0.5)))
+    
+    if x[2] < 0.5
+        p = 2.0 * x[2] + 1.0
+    else
+        p = x[2] + 1.5
+    end
+    
+    u = 0.0
+    c = sqrt(equations.gamma * p / rho)
+    v = -0.025 * c * cos(8.0 * pi * x[1]) * sin(pi * x[2])^6
+    
+    return prim2cons(SVector(rho, u, v, p), equations)
+end
+
+@inline function source_terms_rt(u, x, t, equations::CompressibleEulerEquations2D)
+    g = 1.0
+    rho, rho_v1, rho_v2, rho_e = u
+    return SVector(0.0, 0.0, g * rho, g * rho_v2)
+end
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 18-37: action='replace'
+    - Replacing lines 18-37 with 21 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Spatial Discretization & Hybrid Shock Capturing ---
+  - [Planner]: Instructions received:
+Action: The shock capturing indicator variable must be changed from `velocity_magnitude` to `density` as mandated by the strategy report.
+
+New Code (lines 33-37):
+```julia
+indicator_sc = IndicatorHennemannGassner(equations, basis,
+                                         alpha_max=1.0,
+                                         alpha_min=0.001,
+                                         alpha_smooth=true,
+                                         variable=density)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 33-37: action='replace'
+    - Replacing lines 33-37 with 5 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Computational Domain & Adaptive Mesh Topology ---
+  - [Planner]: Instructions received:
+Action: The domain bounds must be updated to $[0, 0.25] \times [0, 1.0]$ and periodicity must be set to `(true, false)` (periodic in x, walls in y) as per the strategy report.
+
+New Code (lines 19-26):
+```julia
+coordinates_min = (0.0, 0.0)
+coordinates_max = (0.25, 1.0)
+
+# trees_per_dimension (1, 4) to maintain roughly square elements
+mesh = P4estMesh((1, 4), polydeg=polydeg,
+                 coordinates_min=coordinates_min, coordinates_max=coordinates_max,
+                 initial_refinement_level=3, # Start coarser, let AMR refine
+                 periodicity=(true, false)) # Periodic in x, walls in y
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 19-26: action='replace'
+    - Replacing lines 19-26 with 8 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 6 ---
+
+--- Analizing: # ## Cell 6: General Boundary Condition Specification & System Assembly ---
+  - [Planner]: Instructions received:
+Action: The problem is purely inviscid, so the parabolic boundary conditions and the `SemidiscretizationHyperbolicParabolic` must be removed. The boundary conditions for the y-direction are set to slip walls, and the x-direction is handled by the mesh periodicity. The semidiscretization is updated to `SemidiscretizationHyperbolic` using the Rayleigh-Taylor initial conditions and source terms.
+
+New Code (lines 43-71):
+```julia
+boundary_conditions = Dict(
+    :y_pos => boundary_condition_slip_wall,
+    :y_neg => boundary_condition_slip_wall
+)
+
+semi = SemidiscretizationHyperbolic(mesh, equations, initial_condition_rt, dg;
+                                    boundary_conditions = boundary_conditions,
+                                    source_terms = source_terms_rt)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 43-71: action='replace'
+    - Replacing lines 43-71 with 8 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 7 ---
+
+--- Analizing: # ## Cell 7: Dynamic Adaptive Mesh Refinement (AMR) Strategy ---
+  - [Planner]: Instructions received:
+Action: The AMR indicator variable must be changed from `velocity_magnitude` to `density` as mandated by the strategy report.
+
+New Code (lines 23-23):
+```julia
+amr_indicator = IndicatorLöhner(semi, variable=density)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 23-23: action='replace'
+    - Replacing lines 23-23 with 1 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 8 ---
+
+--- Analizing: # ## Cell 8: Data I/O & Surrogate Interoperability ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 9 ---
+
+--- Analizing: # ## Cell 9: ODE System Formulation & Time-Loop Control ---
+  - [Planner]: Instructions received:
+Action: The time domain `tspan` must be updated to `(0.0, 3.0)` as specified in the strategy report.
+
+New Code (lines 25-25):
+```julia
+tspan = (0.0, 3.0) # 
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 25-25: action='replace'
+    - Replacing lines 25-25 with 1 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 10 ---
+
+--- Analizing: # ## Cell 10: Time Integration Loop ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 11 ---
+
+--- Analizing: # ## Cell 11: Data Regularization (Rasterization) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 12 ---
+
+--- Analizing: # ## Cell 12: Post-Processing & Temporal Diagnostics ---
+  - [Planner]: Instructions received:
+Action: The visualization must be updated to plot only the selected primary variables (Density $\rho$ and Vertical velocity $v$) with automatic visual scaling. The domain limits for the x-axis must also be updated to match the problem domain $[0, 0.25]$. The layout is adjusted to a 4x2 grid to accommodate the 2 variables over 4 time steps.
+
+New Code (lines 40-76):
+```julia
+    style = (
+        seriestype = :scatter,
+        markersize = 2.5,     
+        markerstrokewidth = 0, 
+        c = :coolwarm,
+        aspect_ratio = :equal,
+        xlims = (0, 0.25),        
+        ylims = (0, 1),
+        axis = nothing,           
+        framestyle = :none,    
+        legend = false,   
+        colorbar = true,
+        margin = 2Plots.mm
+    )
+    
+    push!(plots_array, plot(x, y, zcolor=vec(data["rho"]), 
+                            title="ρ, t=$(round(t_val, digits=2))"; style...))
+                            
+    push!(plots_array, plot(x, y, zcolor=vec(data["v"]),   
+                            title="v, t=$(round(t_val, digits=2))"; style...))
+end
+
+# Combine and Save
+println("Saving summary_all.png...")
+final_plot = plot(plots_array..., layout=(4,2), size=(1000, 1200), margin=5Plots.mm)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 40-76: action='replace'
+    - Replacing lines 40-76 with 25 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ Numerical method using DGSEM (polydeg=3) with AMR (IndicatorLöhner on density) and hybrid shock capturing (HennemannGassner indicator, density variable) for the 2D compressible Euler equations with gravity source terms. Domain [0,0.25]x[0,1], tspan [0,3], periodic x / slip-wall y boundaries, exact ICs and source terms as specified.
+Proposed name:CompressibleEuler_PeriodicReflective_RayleighTaylor\Question :Let's solve the 2D Compressible Euler equations for the Rayleigh-Taylor Instability.
+
+**Physics Parameters:**
+* **Equations:** Compressible Euler ($\gamma = 1.4$).
+* **Gravity:** $g = 1.0$ acting in the **positive $y$-direction** (The source term adds momentum in $+y$).
+* **Inviscid:** $\mu = 0$, thermal conductivity $k = 0$.
+
+**Domain:**
+$(x,y) \in [0, 0.25] \times [0, 1.0]$
+Time interval: $t \in [0, 3.0]$
+
+**Boundary Conditions:**
+* $x$-direction: **Periodic**.
+* $y$-direction: **Reflective / Free-slip walls** at $y=0$ and $y=1$ (No-penetration condition $v=0$).
+
+**Initial Conditions:**
+The domain is split at the interface $y=0.5$.
+* **Density ($\rho$):** A smoothed interface between $\rho_{heavy} = 2.0$ (bottom) and $\rho_{light} = 1.0$ (top).
+    $$ \rho(y) = \rho_{heavy} + (\rho_{light} - \rho_{heavy}) \cdot \frac{1}{2}\left(1 + \tanh\left(50(y - 0.5)\right)\right) $$
+* **Pressure ($p$):** Hydrostatic balance ($\frac{dp}{dy} = \rho g$).
+    $$ p(y) = \begin{cases} 2y + 1 & \text{if } y < 0.5 \\ y + 1.5 & \text{if } y \geq 0.5 \end{cases} $$
+* **Velocity:** Initialized with zero horizontal velocity ($u=0$) and a perturbation in vertical velocity ($v$):
+    $$ v(x,y) = -0.025 \cdot c \cdot \cos(8\pi x) \cdot \sin(\pi y)^6 $$
+    Where $c = \sqrt{\gamma p / \rho}$ is the local speed of sound.
+
+**Output:**
+Create an appropiate Figure and saved it as summary_all.png
+
+Created project directory: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1054/
+Successfully saved code to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1054/CompressibleEuler_PeriodicReflective_RayleighTaylor.jl
+Attempting to run /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1054/CompressibleEuler_PeriodicReflective_RayleighTaylor.jl...
+
+--- [Streaming Output silently to /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1054/CompressibleEuler_PeriodicReflective_RayleighTaylor.jl.out] ---
+--- [End of Stream. Exit Code: 1] ---
+❌ Error running CompressibleEuler_PeriodicReflective_RayleighTaylor.jl.
+--- [Found julia Error. Sending snippet to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: REJECTED_FATAL
+Debugger Analysis: The log shows an 'UndefVarError' for `density` in Cell 4 of the script. The error message states: 'UndefVarError: `density` not defined in `Main`' with hints that both `Trixi` and `Plots` export different bindings with this name, causing ambiguity.
+
+The fix is straightforward: in Cell 4, the `IndicatorHennemannGassner` call uses `variable=density` and in Cell 7, the `IndicatorLöhner` call also uses `variable=density`. These must be explicitly qualified to resolve the ambiguity. The Planner should replace both occurrences with the fully qualified `Trixi.density`, i.e.:
+
+- Cell 4: `variable=Trixi.density`
+- Cell 7: `variable=Trixi.density`
+
+This is a fixable naming conflict between the `Trixi` and `Plots` packages, not an environment issue.
+--- Clearing agent short-term memories ---
+Chat history cleared.
+
+--- Code Creation Iteration: 1 ---
+
+--- CURRENT TRIAL HISTORY ---
+No trials have been run yet.
+---------------------------
+
+--- There was an implementation error so we will keep the same strategy for this iteration---
+--- 3. Calling Implementation Team ---
+--- Starting Sequential, Stateful Refinement ---
+Planner Study Phase: **Context:** The framework uses Trixi.jl to solve the 2D Compressible Euler equations for a Rayleigh-Taylor instability using a Discontinuous Galerkin Spectral Element Method (DGSEM) with Adaptive Mesh Refinement (AMR).
+
+**Mapping:**
+- Cell 1 (Solver and Discretization Initialization): Keep - Standard imports and thread initialization are correct.
+- Cell 2 (Physics Model Definition): Keep - Correctly initializes `CompressibleEulerEquations2D(1.4)` for the inviscid system.
+- Cell 3 (Initial Conditions and Source Terms): Keep - Already implements the exact Rayleigh-Taylor initial conditions and gravity source terms specified in the strategy.
+- Cell 4 (Spatial Discretization & Hybrid Shock Capturing): Modify - Update `variable=density` to `variable=Trixi.density` to resolve the namespace ambiguity identified in the Error Report.
+- Cell 5 (Computational Domain & Adaptive Mesh Topology): Keep - Domain bounds `[0, 0.25] x [0, 1.0]` and `periodicity=(true, false)` perfectly match the strategy.
+- Cell 6 (General Boundary Condition Specification): Keep - Slip wall boundary conditions for the y-boundaries match the reflective/free-slip requirement.
+- Cell 7 (Dynamic Adaptive Mesh Refinement): Modify - Update `variable=density` to `variable=Trixi.density` to resolve the namespace ambiguity identified in the Error Report.
+- Cell 8 (Data I/O & Surrogate Interoperability): Keep - Correctly extracts and saves the required primitive variables.
+- Cell 9 (ODE System Formulation & Time-Loop Control): Keep - Time span `(0.0, 3.0)` and callback setup are correct.
+- Cell 10 (Time Integration Loop): Keep - Standard explicit time-stepping configuration is appropriate.
+- Cell 11 (Data Regularization): Keep - Utility function for potential rasterization.
+- Cell 12 (Post-Processing & Temporal Diagnostics): Keep - Already configured to plot the primary ($\rho$) and secondary ($v$) fields and save as `summary_all.png`.
+Available Cells: dict_keys(['Prologue', 'Cell 1', 'Cell 2', 'Cell 3', 'Cell 4', 'Cell 5', 'Cell 6', 'Cell 7', 'Cell 8', 'Cell 9', 'Cell 10', 'Cell 11', 'Cell 12'])
+Identified Cells: dict_keys(['Cell 4', 'Cell 7'])
+
+--- Processing: Prologue ---
+
+--- Analizing: # %% [markdown] ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 1 ---
+
+--- Analizing: # ## Cell 1: Solver and Discretization Initialization ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 2 ---
+
+--- Analizing: # ## Cell 2: Physics Model Definition (Compressible Navier-Stokes) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 3 ---
+
+--- Analizing: # ## Cell 3: Initial Conditions and Source Terms (Lid-Driven Cavity) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 4 ---
+
+--- Analizing: # ## Cell 4: Spatial Discretization & Hybrid Shock Capturing ---
+  - [Planner]: Instructions received:
+Action: Update `variable=density` to `variable=Trixi.density` in `IndicatorHennemannGassner` to resolve the namespace ambiguity between Trixi and Plots as specified in the Error Report.
+
+New Code (lines 31-35):
+```julia
+indicator_sc = IndicatorHennemannGassner(equations, basis,
+                                         alpha_max=1.0,
+                                         alpha_min=0.001,
+                                         alpha_smooth=true,
+                                         variable=Trixi.density)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 31-35: action='replace'
+    - Replacing lines 31-35 with 5 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 5 ---
+
+--- Analizing: # ## Cell 5: Computational Domain & Adaptive Mesh Topology ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 6 ---
+
+--- Analizing: # ## Cell 6: General Boundary Condition Specification & System Assembly ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 7 ---
+
+--- Analizing: # ## Cell 7: Dynamic Adaptive Mesh Refinement (AMR) Strategy ---
+  - [Planner]: Instructions received:
+Action: Update `variable=density` to `variable=Trixi.density` in `IndicatorLöhner` to resolve the namespace ambiguity between Trixi and Plots as specified in the Error Report.
+
+New Code (lines 22-22):
+```julia
+amr_indicator = IndicatorLöhner(semi, variable=Trixi.density)
+```
+
+--- Applying deterministic line range patch ---
+  - Processing change for lines 22-22: action='replace'
+    - Replacing lines 22-22 with 1 new lines.
+  - [Patcher]: Patch applied successfully.
+
+--- Processing: Cell 8 ---
+
+--- Analizing: # ## Cell 8: Data I/O & Surrogate Interoperability ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 9 ---
+
+--- Analizing: # ## Cell 9: ODE System Formulation & Time-Loop Control ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 10 ---
+
+--- Analizing: # ## Cell 10: Time Integration Loop ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 11 ---
+
+--- Analizing: # ## Cell 11: Data Regularization (Rasterization) ---
+NO CHANGE REQUIRED
+
+--- Processing: Cell 12 ---
+
+--- Analizing: # ## Cell 12: Post-Processing & Temporal Diagnostics ---
+NO CHANGE REQUIRED
+
+--- 6. Reconstructing Code ---
+--- 4. Calling Debugging Team ---
+Inspector summary:
+ Numerical method using DGSEM (polydeg=3, LobattoLegendreBasis) with hybrid shock capturing (IndicatorHennemannGassner on density, flux_ranocha + flux_lax_friedrichs) and AMR (IndicatorLöhner on density via ControllerThreeLevel). Solves 2D compressible Euler equations with gravity source terms on domain [0,0.25]x[0,1], t=[0,3]. Periodic BC in x, slip_wall in y. Initial condition exactly implements the specified tanh density profile, piecewise pressure, u=0, and v perturbation using cos(8πx)sin(πy)^6. Time integration via RDPK3SpFSAL49 with CFL control. Saves full solution snapshots and generates summary_all.png plotting ρ and v.
+Proposed name:CompressibleEuler_PeriodicReflective_RayleighTaylor\Question :Let's solve the 2D Compressible Euler equations for the Rayleigh-Taylor Instability.
+
+**Physics Parameters:**
+* **Equations:** Compressible Euler ($\gamma = 1.4$).
+* **Gravity:** $g = 1.0$ acting in the **positive $y$-direction** (The source term adds momentum in $+y$).
+* **Inviscid:** $\mu = 0$, thermal conductivity $k = 0$.
+
+**Domain:**
+$(x,y) \in [0, 0.25] \times [0, 1.0]$
+Time interval: $t \in [0, 3.0]$
+
+**Boundary Conditions:**
+* $x$-direction: **Periodic**.
+* $y$-direction: **Reflective / Free-slip walls** at $y=0$ and $y=1$ (No-penetration condition $v=0$).
+
+**Initial Conditions:**
+The domain is split at the interface $y=0.5$.
+* **Density ($\rho$):** A smoothed interface between $\rho_{heavy} = 2.0$ (bottom) and $\rho_{light} = 1.0$ (top).
+    $$ \rho(y) = \rho_{heavy} + (\rho_{light} - \rho_{heavy}) \cdot \frac{1}{2}\left(1 + \tanh\left(50(y - 0.5)\right)\right) $$
+* **Pressure ($p$):** Hydrostatic balance ($\frac{dp}{dy} = \rho g$).
+    $$ p(y) = \begin{cases} 2y + 1 & \text{if } y < 0.5 \\ y + 1.5 & \text{if } y \geq 0.5 \end{cases} $$
+* **Velocity:** Initialized with zero horizontal velocity ($u=0$) and a perturbation in vertical velocity ($v$):
+    $$ v(x,y) = -0.025 \cdot c \cdot \cos(8\pi x) \cdot \sin(\pi y)^6 $$
+    Where $c = \sqrt{\gamma p / \rho}$ is the local speed of sound.
+
+**Output:**
+Create an appropiate Figure and saved it as summary_all.png
+
+Created project directory: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/
+Successfully saved code to: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/CompressibleEuler_PeriodicReflective_RayleighTaylor.jl
+Attempting to run /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/CompressibleEuler_PeriodicReflective_RayleighTaylor.jl...
+
+--- [Streaming Output silently to /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/CompressibleEuler_PeriodicReflective_RayleighTaylor.jl.out] ---
+--- [End of Stream. Exit Code: 0] ---
+✅ Successfully ran CompressibleEuler_PeriodicReflective_RayleighTaylor.jl.
+--- [No Traceback. Sending last 20 lines to Debugger] ---
+--- Running Debugging Team ---
+Debugger Status: APPROVED
+Debugger Analysis: The code executed successfully without runtime errors. The log shows the simulation completed, NPZ snapshots were saved at four time points (t=0.0, t≈1.375, t≈2.235, t=3.0), and the final summary_all.png was generated and saved without any exceptions or non-zero exit codes.
+--- 5. Calling Advisor Team ---
+--- Running Advisor Team (Fail-Fast Strategy) ---
+Attempting to create CHRONOLOGICAL consolidated report: consolidated_report_chronological.pdf
+Found 2 reportable files. Building PDF in chronological order...
+✅ Successfully created chronological report at: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/consolidated_report_chronological.pdf
+Human-readable PDF report created.
+--- Found plot: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/summary_all.png ---
+✅ Found 'summary_all.png' at: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/summary_all.png
+Proceeding to multimodal analysis...
+Encoding image from: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/summary_all.png
+DEBUG: Image resized to 800x960
+Image encoded. Base64 length: 244254
+Sending multimodal input to AdvisorAgent...
+DEBUG - Input type: <class 'list'>
+DEBUG - Is multimodal: True
+DEBUG - Input list length: 2
+>>> Using MULTIMODAL mode (direct LLM call)
+--- Advisor Markdown Report Received ---
+**Section 1: Status Decision**
+* **Status:** APPROVED
+
+**Section 2: Quantitative Scorecard**
+* **Score Integrity:** 50
+* **Score Accuracy:** 20
+* **Score Details:** 15
+* **Score Optimality:** 15
+* **TOTAL SCORE:** 100
+
+*Note: Quantitative error is not applicable as no ground truth is available for this fully nonlinear 2D instability.*
+
+**Section 3: Forensic Analysis & Feedback**
+
+* **Observation:** The simulation flawlessly captures the nonlinear evolution of the compressible Rayleigh-Taylor instability. The upward gravity vector ($g=1.0$ in $+y$) correctly drives the heavy fluid ($\rho=2.0$, bottom) into the light fluid ($\rho=1.0$, top). The initial velocity perturbation triggers the instability, and perfect symmetry is maintained across the periodic boundaries throughout the run. The contact discontinuity (the fluid interface) remains razor-sharp, and complex secondary Kelvin-Helmholtz instabilities (vortex roll-ups) are beautifully resolved at $t=2.23$ and $t=3.0$. The observed increase in maximum density (up to 2.5 at $t=3.0$) is a physically correct manifestation of compressibility, as the heavy fluid is pushed into the higher-pressure upper region of the domain.
+* **Diagnosis:** High-Fidelity Physical Resolution. The combination of DGSEM, Adaptive Mesh Refinement (AMR), and subcell shock capturing has perfectly resolved the interfacial dynamics without introducing spurious oscillations or excessive numerical diffusion.
+* **Targeted Improvements:** 
+    * **For Integrity:** None. The simulation is perfectly stable and the outputs are pristine.
+    * **For Accuracy:** None. The physical behavior, including compressibility effects and symmetry, is exactly as expected for this setup.
+    * **For Details:** None. The AMR strategy (targeting density) successfully kept the interface sharp (1-2 cells wide) while resolving the intricate vortex shedding on the mushroom caps.
+    * **For Optimality:** None. The chosen architecture (DGSEM with `polydeg=3`, `flux_ranocha` blended with `flux_lax_friedrichs` for shock capturing, and AMR) is the state-of-the-art optimal choice for this specific problem. Perfect Score Achieved. No further refinement possible.
+Parsing report with AdvisorParser...
+⚠️  Parser attempt 1/10 failed: ERROR: Missing keys: {'recommendations_for_planner', 'analysis'}. Required keys: {'status', 'analysis', 'recommendations_for_planner'}. Found: ['status', 'summary', 'data_saving', 'discrepancies']
+✅ Parser succeeded on attempt 2
+✅ Advisor APPROVED the scientific result.
+✅ Report updated: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/Experiment_Report.md
+--- Clearing agent short-term memories ---
+Chat history cleared.
+[HENA] log saved: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/logs/A_SciC/hena_A_2026_11_06_1055_20261106_105008.txt
+[usage] summary: /oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/usage/usage_closed_Rayleigh_Taylor_2D_Euler_stage1_20261106_105008_summary.json
+approved=True  project_dir=/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/results//CompressibleEuler_PeriodicReflective_RayleighTaylor/2026_11_06_1055/  log=/oscar/data/gk/jdtoscan/References/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms/Results/Sensitivity/closed/RT/run5/logs/A_SciC/hena_A_2026_11_06_1055_20261106_105008.txt
