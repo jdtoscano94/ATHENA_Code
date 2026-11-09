@@ -1,6 +1,6 @@
 #!/bin/bash
-# Baseline without ATHENA: one model in a coding-agent harness (Claude Code or OpenCode), in
-# the same release box, given only the user request of an ATHENA case and a working folder. No
+# Baseline without ATHENA: Claude Code (the single-agent baseline of the paper), in the same
+# release box, given only the user request of an ATHENA case and a working folder. No
 # ATHENA code, templates, vector DBs, Strategist/Critic/Advisor or rubric; no web tools. It plans,
 # writes, runs and iterates by itself.
 #
@@ -9,17 +9,13 @@
 #     prompt.md           the exact message the agent received
 #     events.jsonl        the harness's JSON event stream (every tool call, tokens per step)
 #     run.log             harness stderr
-#     usage_summary.json  token totals (and cost, turns, duration for Claude Code)
+#     usage_summary.json  token totals, cost, turns and duration
 #     network_commands.txt  shell commands that could have reached the network (web tools are denied)
 #     box/                the agent's only writable (and only visible) folder, mounted at /box;
 #                         box/final/ holds the code and outputs it hands in; box/.box/ harness state
 #
-# Usage: bare_agent_run.sh <request.json> <harness/model> <RUN_DIR>
-#   harness/model: claude/claude-opus-5-5 (Claude Code, subscription token),
-#                  google/gemini-3.1-pro-preview (OpenCode, Gemini API key) or
-#                  ollama/glm-5.3 (OpenCode, Ollama Cloud: OLLAMA_API in crunch_llm/code/.env,
-#                  reasoning effort high and 128k output, as in Open-GRAFT run_agent.sh)
-#   Subagents are allowed in every harness (Claude Code Agent tool, OpenCode task); web and cross-session tools are off.
+# Usage: bare_agent_run.sh <request.json> claude/<model> <RUN_DIR>   (the paper: claude/claude-opus-5-5)
+#   Subagents (the Agent tool) are allowed; web and cross-session tools are off.
 #   Claude Code needs a long-lived token from `claude setup-token`: CLAUDE_CODE_OAUTH_TOKEN in
 #   crunch_llm/code/.env (default; ATHENA_ENV_FILE points elsewhere), or CLAUDE_TOKEN_FILE=<one-line token file>.
 set -u
@@ -30,12 +26,12 @@ SIF="${ATHENA_SIF:-$REPO/container/images/athena_release.sif}"
 [ -f "$REQUEST" ] || REQUEST="$REPO/$REQUEST"
 [ -f "$REQUEST" ] || { echo "request not found: $1" >&2; exit 1; }
 HARNESS="${MODEL%%/*}"; MID="${MODEL#*/}"
-case "$HARNESS" in claude|google|ollama) ;; *) echo "harness must be claude/<model>, google/<model> or ollama/<model>" >&2; exit 1 ;; esac
+[ "$HARNESS" = claude ] || { echo "model must be claude/<model>, e.g. claude/claude-opus-5-5" >&2; exit 1; }
 mkdir -p "$RUN_DIR"; RUN_DIR="$(readlink -f "$RUN_DIR")"
 case "$RUN_DIR/" in "$REPO"/Results/*) ;; *) echo "RUN_DIR must be under $REPO/Results/" >&2; exit 1 ;; esac
 [ -e "$RUN_DIR/events.jsonl" ] && { echo "Refusing to overwrite an existing run: $RUN_DIR" >&2; exit 1; }
 BOX="$RUN_DIR/box"
-mkdir -p "$BOX/final" "$BOX/.box"/{home,julia_depot,xdg_config/opencode,xdg_data,xdg_cache,xdg_state}
+mkdir -p "$BOX/final" "$BOX/.box"/{home,julia_depot,xdg_config,xdg_data,xdg_cache,xdg_state}
 
 NCPU="${SLURM_CPUS_PER_TASK:-$(nproc)}"
 if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then HW="$NCPU CPU cores and one NVIDIA GPU"; else HW="$NCPU CPU cores, no GPU"; fi
@@ -81,66 +77,22 @@ ENV_FILE="${ATHENA_ENV_FILE:-$REPO/crunch_llm/code/.env}"
 SECRET="$(mktemp "${TMPDIR:-/tmp}/bare_agent_env.XXXXXX")"; chmod 600 "$SECRET"
 trap 'rm -f "$SECRET"' EXIT
 H_BINDS=()
-if [ "$HARNESS" = claude ]; then
-    # subscription token (claude setup-token): CLAUDE_CODE_OAUTH_TOKEN in crunch_llm/code/.env
-    # (or ATHENA_ENV_FILE), or a one-line token file given as CLAUDE_TOKEN_FILE
-    TOKF="${CLAUDE_TOKEN_FILE:-$ENV_FILE}"
-    if grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' "$TOKF" 2>/dev/null; then
-        TOK="$(grep -E '^CLAUDE_CODE_OAUTH_TOKEN=' "$TOKF" | head -1 | cut -d= -f2- | tr -d "\"' \r")"
-    else
-        TOK="$(tr -d ' \r\n' < "$TOKF" 2>/dev/null)"
-    fi
-    [ -n "$TOK" ] || { echo "no Claude token in $TOKF (run: claude setup-token)" >&2; exit 1; }
-    CLAUDE_BIN="$(readlink -f "$(command -v claude)")"
-    [ -x "$CLAUDE_BIN" ] || { echo "claude binary not found on the host" >&2; exit 1; }
-    H_BINDS=(-B "$CLAUDE_BIN:/usr/local/bin/claude:ro")
-    printf '%s\n' "CLAUDE_CODE_OAUTH_TOKEN=$TOK" DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1 \
-        DISABLE_ERROR_REPORTING=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 > "$SECRET"
-    VERSION="claude-code $("$CLAUDE_BIN" --version 2>/dev/null | cut -d' ' -f1)"
-    AGENT_CMD='cd /box && exec claude -p "$(cat /box/.box/prompt.md)" --model "$0" --output-format stream-json --verbose --dangerously-skip-permissions --disallowedTools WebFetch WebSearch Workflow SendMessage ListAgents RemoteTrigger CronCreate CronDelete CronList ScheduleWakeup'
+# subscription token (claude setup-token): CLAUDE_CODE_OAUTH_TOKEN in crunch_llm/code/.env
+# (or ATHENA_ENV_FILE), or a one-line token file given as CLAUDE_TOKEN_FILE
+TOKF="${CLAUDE_TOKEN_FILE:-$ENV_FILE}"
+if grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' "$TOKF" 2>/dev/null; then
+    TOK="$(grep -E '^CLAUDE_CODE_OAUTH_TOKEN=' "$TOKF" | head -1 | cut -d= -f2- | tr -d "\"' \r")"
 else
-    # OpenCode with one model; subagents (task) allowed, as the Agent tool is in Claude Code
-    if [ "$HARNESS" = google ]; then
-        OUTMAX=65536; KEYVAR=GOOGLE_GENERATIVE_AI_API_KEY
-        KEY="$(grep -E '^GOOGLE_API_KEY=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d "\"' \r")"
-        PROVIDER="\"google\": { \"options\": { \"apiKey\": \"{env:$KEYVAR}\" },
-      \"models\": { \"$MID\": { \"name\": \"$MID\", \"tool_call\": true,
-                            \"limit\": { \"context\": 1048576, \"output\": $OUTMAX } } } }"
-    else
-        # Ollama Cloud through its OpenAI-compatible endpoint, same settings as Open-GRAFT run_agent.sh
-        OUTMAX=131072; KEYVAR=OLLAMA_API_KEY
-        KEY="$(grep -E '^OLLAMA_API=' "$ENV_FILE" | head -1 | cut -d= -f2- | tr -d "\"' \r")"
-        PROVIDER="\"ollama\": { \"npm\": \"@ai-sdk/openai-compatible\", \"name\": \"Ollama Cloud\",
-      \"options\": { \"baseURL\": \"https://ollama.com/v1\", \"apiKey\": \"{env:$KEYVAR}\" },
-      \"models\": { \"$MID\": { \"name\": \"$MID\", \"tool_call\": true,
-                            \"limit\": { \"context\": 1048576, \"output\": $OUTMAX },
-                            \"options\": { \"reasoningEffort\": \"high\" } } } }"
-    fi
-    [ -n "$KEY" ] || { echo "no API key for $HARNESS" >&2; exit 1; }
-    cat > "$BOX/.box/xdg_config/opencode/opencode.json" <<JSON
-{
-  "\$schema": "https://opencode.ai/config.json",
-  "autoupdate": false,
-  "share": "disabled",
-  "model": "$MODEL",
-  "small_model": "$MODEL",
-  "provider": {
-    $PROVIDER
-  },
-  "permission": {
-    "read": "allow", "edit": "allow", "glob": "allow", "grep": "allow", "list": "allow",
-    "bash": "allow", "external_directory": "allow", "todowrite": "allow",
-    "lsp": "allow", "skill": "allow", "doom_loop": "allow",
-    "webfetch": "deny", "websearch": "deny", "question": "deny"
-  }
-}
-JSON
-    printf '%s\n' "$KEYVAR=$KEY" OPENCODE_EXPERIMENTAL_OUTPUT_TOKEN_MAX=$OUTMAX \
-        OPENCODE_DISABLE_AUTOUPDATE=1 OPENCODE_DISABLE_SHARE=1 OPENCODE_DISABLE_CLAUDE_CODE=1 > "$SECRET"
-    VERSION="opencode $(apptainer exec --containall "$SIF" opencode --version 2>/dev/null)"
-    MID="$MODEL"
-    AGENT_CMD='cd /box && exec opencode run --auto --format json -m "$0" "$(cat /box/.box/prompt.md)"'
+    TOK="$(tr -d ' \r\n' < "$TOKF" 2>/dev/null)"
 fi
+[ -n "$TOK" ] || { echo "no Claude token in $TOKF (run: claude setup-token)" >&2; exit 1; }
+CLAUDE_BIN="$(readlink -f "$(command -v claude)")"
+[ -x "$CLAUDE_BIN" ] || { echo "claude binary not found on the host" >&2; exit 1; }
+H_BINDS=(-B "$CLAUDE_BIN:/usr/local/bin/claude:ro")
+printf '%s\n' "CLAUDE_CODE_OAUTH_TOKEN=$TOK" DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1 \
+    DISABLE_ERROR_REPORTING=1 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 > "$SECRET"
+VERSION="claude-code $("$CLAUDE_BIN" --version 2>/dev/null | cut -d' ' -f1)"
+AGENT_CMD='cd /box && exec claude -p "$(cat /box/.box/prompt.md)" --model "$0" --output-format stream-json --verbose --dangerously-skip-permissions --disallowedTools WebFetch WebSearch Workflow SendMessage ListAgents RemoteTrigger CronCreate CronDelete CronList ScheduleWakeup'
 
 {
     echo "job=${SLURM_JOB_ID:-none} node=$(hostname) cpus=$NCPU gpu=${CUDA_VISIBLE_DEVICES:-none} start=$(date -Is)"
@@ -169,27 +121,17 @@ echo "exit=$rc end=$(date -Is)" >> "$RUN_DIR/job_info.txt"
 
 # token totals (per-step numbers stay in events.jsonl), and every shell command that could reach
 # the network (the web tools are denied, the shell is not)
-if [ "$HARNESS" = claude ]; then
-    # one result event per segment: the agent can end a turn while its background jobs run and
-    # resume when they finish. turns and duration are summed over segments; cost, usage and
-    # modelUsage are the session totals of the last segment.
-    jq -s '[.[] | select(.type=="result")] as $r | ($r | last) as $l |
-           {turns: ($r | map(.num_turns) | add), duration_ms: ($r | map(.duration_ms) | add),
-            segments: ($r | map({num_turns, duration_ms, total_cost_usd})),
-            total_cost_usd: $l.total_cost_usd, is_error: $l.is_error, subtype: $l.subtype,
-            usage: $l.usage, modelUsage: $l.modelUsage}' \
-        "$RUN_DIR/events.jsonl" > "$RUN_DIR/usage_summary.json" 2>/dev/null
-    jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command' \
-        "$RUN_DIR/events.jsonl" 2>/dev/null > "$RUN_DIR/.bash_commands"
-else
-    jq -s '[.[] | select(.type=="step_finish") | .part.tokens] |
-           {steps: length, input: (map(.input) | add), output: (map(.output) | add),
-            reasoning: (map(.reasoning) | add), cache_read: (map(.cache.read) | add),
-            cache_write: (map(.cache.write) | add), total: (map(.total) | add)}' \
-        "$RUN_DIR/events.jsonl" > "$RUN_DIR/usage_summary.json" 2>/dev/null
-    jq -r 'select(.type=="tool_use" and .part.tool=="bash") | .part.state.input.command // empty' \
-        "$RUN_DIR/events.jsonl" 2>/dev/null > "$RUN_DIR/.bash_commands"
-fi
+# one result event per segment: the agent can end a turn while its background jobs run and
+# resume when they finish. turns and duration are summed over segments; cost, usage and
+# modelUsage are the session totals of the last segment.
+jq -s '[.[] | select(.type=="result")] as $r | ($r | last) as $l |
+       {turns: ($r | map(.num_turns) | add), duration_ms: ($r | map(.duration_ms) | add),
+        segments: ($r | map({num_turns, duration_ms, total_cost_usd})),
+        total_cost_usd: $l.total_cost_usd, is_error: $l.is_error, subtype: $l.subtype,
+        usage: $l.usage, modelUsage: $l.modelUsage}' \
+    "$RUN_DIR/events.jsonl" > "$RUN_DIR/usage_summary.json" 2>/dev/null
+jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Bash") | .input.command' \
+    "$RUN_DIR/events.jsonl" 2>/dev/null > "$RUN_DIR/.bash_commands"
 grep -E 'curl|wget|pip install|Pkg\.add|git clone|http' "$RUN_DIR/.bash_commands" > "$RUN_DIR/network_commands.txt"
 rm -f "$RUN_DIR/.bash_commands"
 exit $rc

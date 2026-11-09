@@ -48,7 +48,6 @@ only the GPU driver from the host, so the same environment runs on any machine w
 | Julia + frozen project (`container/julia/`) | Julia 1.11.9, Trixi.jl 0.13.15, OrdinaryDiffEq, Gridap, StartUpDG |
 | Python for the generated PINN / operator codes | Python 3.12.12, JAX 0.8.2 (CUDA 12), Flax, Optax, NABLA (`third_party/NABLA`) |
 | Python for the orchestrator | Python 3.12.12, LangChain 1.2 + LangGraph 1.0, ChromaDB 1.5 |
-| OpenCode (single-agent baselines only) | 1.18.33 |
 
 ## 1. Clone the repository
 

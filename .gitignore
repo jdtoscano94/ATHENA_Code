@@ -71,3 +71,15 @@ Documents/codes/Data/Burger_1000_5000.mat
 # --- Release container: built image and build logs stay local ---
 container/images/
 container/logs/
+
+# --- Sensitivity runs not used in the paper (kept locally, not released) ---
+# GLM single-agent baseline, the IB2D Opus runs whose prompt carried the pipeline task (superseded by
+# bare_claude/IB_request_only), failed open-team attempts, aborted pilots, and local tests
+Results/Sensitivity/bare_glm/
+Results/Sensitivity/bare_gemini/
+Results/Sensitivity/bare_claude/IB/
+Results/Sensitivity/open/Helmholtz_failed_attempts/
+Results/Sensitivity/open/RT_failed_attempts/
+Results/Sensitivity/open/PINN_codes/
+Results/Sensitivity/aborted_*/
+Results/Tests/

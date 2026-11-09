@@ -66,8 +66,8 @@ Check, in this order, and fix only what is missing:
    - The paper image has sha256 `7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7`.
    - Contents: Julia 1.11.9 with the frozen project in `container/julia/` (Trixi 0.13.15,
      precompiled, read-only); the `nabla_jax` env (Python 3.12, JAX 0.8.2 CUDA 12, Flax, Optax,
-     NABLA from `third_party/NABLA`) for generated Python; the `athena` env for the orchestrator;
-     OpenCode 1.18.33 for the baselines. See `container/README.md`.
+     NABLA from `third_party/NABLA`) for generated Python; the `athena` env for the orchestrator.
+     See `container/README.md`.
 3. **The API keys.** If `crunch_llm/code/.env` is missing, run
    `cp crunch_llm/code/.env_template crunch_llm/code/.env` and ask the user to fill it in
    themselves (rule 3). Which keys are needed:
@@ -390,7 +390,7 @@ while a run uses them.
    **preserve it.**
 4. **`HENA.py`**: `DB_CONFIG` (per-family DBs, `base_results_dir`, `max_iterations_all`), with
    `DB_BASE` / `RESULTS_BASE` resolved from the repo root; the `build_agents_*` factories and
-   `TEAM_BUILDERS` (`open`, `closed`, and `kimi`, an unpublished single-model variant); the
+   `TEAM_BUILDERS` (`open` and `closed`, the model-sensitivity teams); the
    `run_hena_*` loops; `score_gate`; the run logger; the public API.
 5. **`usage_tracker.py`**: one JSONL record per LLM call, embedding call and code execution, plus a
    summary JSON per stage.
@@ -400,10 +400,10 @@ At the repo root, `run_athena.py` drives a request through its stages.
 
 ### Baselines without ATHENA (`bare_agent_run.sh`)
 
-`bash Documents/Scripts/bare_agent_run.sh <request.json> <harness/model> <RUN_DIR>` gives only the
-request's `user_request` to one model in a coding-agent harness (Claude Code or OpenCode), inside
-the same container, with no ATHENA code, templates, DBs or web tools (e.g. `claude/claude-opus-5-5`,
-`google/gemini-3.1-pro-preview`, `ollama/glm-5.3`). The script header has the folder layout.
+`bash Documents/Scripts/bare_agent_run.sh <request.json> claude/claude-opus-5-5 <RUN_DIR>` gives only
+the request's `user_request` to Claude Code (Opus 5.5), the single-agent baseline of the paper,
+inside the same container, with no ATHENA code, templates, DBs or web tools. The script header has
+the folder layout.
 
 ### Repo directories
 

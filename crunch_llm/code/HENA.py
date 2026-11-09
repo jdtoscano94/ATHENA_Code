@@ -1059,14 +1059,9 @@ def run_hena_operator(user_question, agents, cfg,
 # ==========================================================================
 BUILDERS = {"A": build_agents_sciC, "B": build_agents_pinn, "C": build_agents_operator}
 RUNNERS = {"A": run_hena_sciC, "B": run_hena_pinn, "C": run_hena_operator}
-# Alternative teams for the model-sensitivity study (families added as built).
-# Single-model team: one open-weight model fills every role, so no producer is checked by a
-# different model. Same builders, prompts and retrieval as the open team.
-KIMI_TEAM = {role: 'kimi-k3.1-pro' for role in OPEN_TEAM}
+# Alternative teams for the model-sensitivity study (families A and B).
 TEAM_BUILDERS = {
     "open": {"A": build_agents_sciC_open, "B": build_agents_pinn_open},
-    "kimi": {"A": lambda cfg: build_agents_sciC_open(cfg, team=KIMI_TEAM),
-             "B": lambda cfg: build_agents_pinn_open(cfg, team=KIMI_TEAM)},
 }
 # Closed-source team: the published (original) team, with its gpt-oss:120b utility roles
 # (retriever, collector, parsers, patcher, naming) on Gemini 3.1 Pro instead.

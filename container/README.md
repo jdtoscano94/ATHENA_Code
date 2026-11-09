@@ -10,7 +10,7 @@ One Apptainer image with everything ATHENA and its generated codes need. Nothing
 | NABLA_JAX env | Python 3.12.12, `container/requirements_nabla_jax.txt` (JAX 0.8.2, CUDA 12 wheels) | the PINN and operator codes |
 | NABLA `Crunch` | `third_party/NABLA` (from NABLA-SciML) | `from Crunch.Models.layers import ...` in the PINN codes |
 | ATHENA env | Python 3.12.12, `container/requirements_athena.txt` | the orchestrator (`run_athena.py`) |
-| OpenCode | 1.18.33 | the two-agent box |
+| OpenCode | 1.18.33 | installed in the image; not used by ATHENA or the paper's experiments |
 
 The Julia depot inside the image is precompiled for a portable CPU target and is read-only. A writable depot sits in front of it (`$ATHENA_JULIA_DEPOT`, default `~/.athena_julia_depot`), so any package an agent adds, and any recompile, lands there and never changes the image.
 
