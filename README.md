@@ -775,6 +775,12 @@ runs its solvers in **Julia**:
 }
 ```
 
+### License
+
+ATHENA is released under the [MIT License](LICENSE), which covers this repository, including
+`third_party/NABLA` and `third_party/Crunch.jl`. The container image on Zenodo bundles third-party
+software (Julia packages, Python packages, OpenCode) under their own licenses.
+
 ## A Note on Model Availability (deprecated model IDs)
 
 The example notebooks and the `build_agents_*` factories in `HENA.py` pin the **exact

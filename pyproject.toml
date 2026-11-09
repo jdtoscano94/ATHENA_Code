@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Project Athena LLM tools"
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
 dependencies = [
  # --- LLM & LangChain Dependencies ---
     "langchain",
