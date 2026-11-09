@@ -126,5 +126,5 @@ fi
 
 # --- Execution ---
 rm -rf "./__pycache__/"
-python -u "$PYTHON_SCRIPT" 2> "$STDERR_FILE"
+"${NOKEYS[@]}" python -u "$PYTHON_SCRIPT" 2> "$STDERR_FILE"
 conda deactivate 2>/dev/null || true

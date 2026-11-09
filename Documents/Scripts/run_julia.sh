@@ -85,5 +85,5 @@ else
     [ -n "$JULIA_EXEC" ] && [ -x "$JULIA_EXEC" ] || { echo "Error: julia not found; set ATHENA_JULIA_EXEC" >&2; exit 1; }
     export JULIA_DEPOT_PATH="$RUN_DEPOT:$FROZEN_ENV/depot:${ATHENA_JULIA_USER_DEPOT:-$HOME/.julia}"
     export JULIA_CPU_TARGET JULIA_PKG_PRECOMPILE_AUTO=0
-    "$JULIA_EXEC" --project="$FROZEN_ENV" --threads="$JULIA_THREADS" --color=no "$JULIA_SCRIPT" 2> "$STDERR_FILE"
+    "${NOKEYS[@]}" "$JULIA_EXEC" --project="$FROZEN_ENV" --threads="$JULIA_THREADS" --color=no "$JULIA_SCRIPT" 2> "$STDERR_FILE"
 fi

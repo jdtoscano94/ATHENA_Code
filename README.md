@@ -173,33 +173,62 @@ A run ends in one of four ways:
 
 ## Running the orchestrator outside the container
 
-Only needed for option B. Create a Python 3.12 environment with the orchestrator's packages:
+Only needed for option B. Create the orchestrator's Python environment (step 2 of the next
+section); the generated code keeps running in the container.
+
+## Installing without the container
+
+If you cannot use Apptainer, install what the container holds natively, from the same pinned
+files, so the versions match. You need Linux x86_64, conda (or micromamba), and, for the PINN and
+operator codes of families B and C, an NVIDIA driver for CUDA 12 (the JAX wheels bring their own
+CUDA libraries).
+
+| Component | Version | Installed from |
+|---|---|---|
+| Python env for the generated PINN / operator code | Python 3.12, JAX 0.8.2 (CUDA 12), Flax 0.12.2, NABLA | `container/requirements_nabla_jax.txt`, `third_party/NABLA` |
+| Python env for the orchestrator | Python 3.12, LangChain 1.2.10, LangGraph 1.0, ChromaDB 1.5.1 | `container/requirements_athena.txt` (same as `requirements.txt`) |
+| Julia and the solver packages | Julia 1.11.9, Trixi 0.13.15, OrdinaryDiffEq, Gridap, StartUpDG | `container/julia/{Project,Manifest}.toml`, `third_party/Crunch.jl` |
+
+From the repository root:
 
 ```bash
-conda create -n athena_env python=3.12 && conda activate athena_env
-pip install -r requirements.txt
+# 1. Python env for the generated code
+conda create -n NABLA_JAX python=3.12 -y && conda activate NABLA_JAX
+pip install -r container/requirements_nabla_jax.txt
+pip install --no-deps third_party/NABLA
+
+# 2. Python env for the orchestrator
+conda create -n athena_env python=3.12 -y && conda activate athena_env
+pip install -r container/requirements_athena.txt
 pip install -e . --no-deps
+
+# 3. Julia 1.11.9 and the frozen project, in a depot of its own (the first precompile takes
+#    30 to 60 minutes; the CPU target must be the one the bridge uses, or every run recompiles)
+mkdir -p ~/athena_julia && curl -fsSL \
+  https://julialang-s3.julialang.org/bin/linux/x64/1.11/julia-1.11.9-linux-x86_64.tar.gz | tar -xz -C ~/athena_julia
+export ATHENA_JULIA_EXEC=~/athena_julia/julia-1.11.9/bin/julia
+export ATHENA_JULIA_USER_DEPOT=~/athena_julia/depot
+JULIA_DEPOT_PATH=$ATHENA_JULIA_USER_DEPOT \
+JULIA_CPU_TARGET='generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)' \
+  $ATHENA_JULIA_EXEC --project=container/julia -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+
+# 4. Tell the bridges to use them (keep these exports, with the two above, in every shell that
+#    runs ATHENA)
+export ATHENA_EXEC=host ATHENA_CONDA_ENV=NABLA_JAX ATHENA_JULIA_ENV=$PWD/container/julia
 ```
 
-> **Note:** the agent layer (`crunch_llm/code/agents.py`) is built on the
-> `langchain.agents.create_agent` API, which requires `langchain>=1.0` and `langgraph`.
+Check the setup with the bridge test of step 4 under Installation. Then activate `athena_env` and
+launch runs with `run_athena.py` (option B); `athena_box_run.sh` needs the container.
 
-## Running the generated code on the host (advanced)
+```bash
+conda activate athena_env
+ATHENA_OLLAMA_CLOUD_ONLY=1 python run_athena.py Conceptualization_team/ATHENA_Request_Helmholtz_PINN.json
+```
 
-`ATHENA_EXEC=host` makes the bridges run the generated code on the host instead of in the
-container. The host environments must then match the container's:
-
-* **Python / JAX** (`run_python.sh`): a conda env with
-  `pip install -r container/requirements_nabla_jax.txt && pip install --no-deps third_party/NABLA`.
-  Set `ATHENA_CONDA_ENV` (default `NABLA_JAX`) and, if `conda` is not on your `PATH`,
-  `ATHENA_CONDA_SH` (the path to `conda.sh`).
-* **Julia** (`run_julia.sh`): Julia 1.11.9 and the frozen project,
-  `julia --project=container/julia -e 'using Pkg; Pkg.instantiate()'`.
-  Set `ATHENA_JULIA_ENV=$PWD/container/julia` and, if `julia` is not on your `PATH`,
-  `ATHENA_JULIA_EXEC`.
-
-In host mode the generated code shares your environment, so the isolation of the container
-(read-only packages, no access to the keys or the repository) no longer applies.
+Without the container, the generated code runs in your own environment: it can read anything your
+user can, and nothing prevents an install from changing your environments. The bridges still
+withhold the API keys, and the agents are instructed never to modify the environment, but only
+the container enforces the isolation.
 
 # Configuring the Models
 
