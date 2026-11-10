@@ -52,7 +52,7 @@ only the GPU driver from the host, so the same environment runs on any machine w
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/jdtoscano94/ATHENA_Agentic_Team_for_Hierarchical_Evolutionary_Numerical_Algorithms.git ATHENA
+git clone https://github.com/jdtoscano94/ATHENA_Code.git ATHENA
 cd ATHENA
 ```
 
