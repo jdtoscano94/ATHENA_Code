@@ -14,6 +14,17 @@ One Apptainer image with everything ATHENA and its generated codes need. Nothing
 
 The Julia depot inside the image is precompiled for a portable CPU target and is read-only. A writable depot sits in front of it (`$ATHENA_JULIA_DEPOT`, default `~/.athena_julia_depot`), so any package an agent adds, and any recompile, lands there and never changes the image.
 
+## Download
+
+The image used for the paper is in the release zip on Zenodo, [https://zenodo.org/records/24096756](https://zenodo.org/records/24096756). From the repository root:
+
+```bash
+wget -O ATHENA_release.zip "https://zenodo.org/records/24096756/files/ATHENA_release_4f2e92c.zip?download=1"
+unzip -j ATHENA_release.zip 'ATHENA/container/images/*' -d container/images/
+sha256sum -c container/images/athena_release.sif.sha256    # prints OK
+rm ATHENA_release.zip
+```
+
 ## Build
 
 ```bash

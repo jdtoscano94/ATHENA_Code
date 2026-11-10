@@ -58,7 +58,18 @@ cd ATHENA
 
 ## 2. Get the container image
 
-Build it from the definition in `container/` (about 1 to 2 hours; needs Apptainer with
+**Download it (recommended).** The Zenodo record [https://zenodo.org/records/24096756](https://zenodo.org/records/24096756) holds one zip (9.4 GB) with the
+repository at the paper's release commit and the image used for the paper. From the
+repository root, take the image out of the zip and check it:
+
+```bash
+wget -O ATHENA_release.zip "https://zenodo.org/records/24096756/files/ATHENA_release_4f2e92c.zip?download=1"
+unzip -j ATHENA_release.zip 'ATHENA/container/images/*' -d container/images/
+sha256sum -c container/images/athena_release.sif.sha256    # prints OK
+rm ATHENA_release.zip
+```
+
+**Or build it** from the definition in `container/` (about 1 to 2 hours; needs Apptainer with
 `--fakeroot` and about 60 GB of local scratch):
 
 ```bash
@@ -69,8 +80,8 @@ bash   container/build_release.sh     # on any machine with apptainer
 
 The image is written to `container/images/athena_release.sif` together with its `sha256`
 (a built image is never overwritten). The image used for the paper has sha256
-`7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7`
-[download link to be added]. See `container/README.md` for details.
+`7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7`. See `container/README.md`
+for details.
 
 ## 3. Configure the API keys
 
@@ -484,7 +495,7 @@ load a file from `Documents/codes/Data/`, which the bridges mount read-only insi
 | `1D_Viscous_Burgers_PINN_BareProblem` | `burgers.mat` | 15 MB | included in the repo |
 | `Inviscid_Burgers_PINN` | `inviscid_burgers_sinpix.npz` | 0.4 MB | included in the repo |
 | `Inverse_2D_NavierStokes_…_ReInference` | `ldc_Re500.npz` | 3.0 MB | included in the repo |
-| `Viscous_Burgers_DeepONet` | `Burger_1000_5000.mat` | 374 MB | **download from [Google Drive](https://drive.google.com/file/d/1Tr6a22SiMpgUlzbIHiBFAt8DRGXQ30E6/view)** into `Documents/codes/Data/` (too large for git) |
+| `Viscous_Burgers_DeepONet` | `Burger_1000_5000.mat` | 374 MB | **download from [Zenodo](https://zenodo.org/records/24096756/files/Burger_1000_5000.mat?download=1)** into `Documents/codes/Data/` (too large for git) |
 
 The request JSONs name these files as `{REPO}/Documents/codes/Data/<file>`; `run_athena.py`
 replaces `{REPO}` with the repository root, so the requests work wherever the repo is cloned.

@@ -58,8 +58,11 @@ Check, in this order, and fix only what is missing:
    and operator codes of families B and C; the Julia solvers of family A run on CPUs); `sinfo` to
    see whether this is a SLURM cluster.
 2. **The container image** at `container/images/athena_release.sif` (or wherever `ATHENA_SIF`
-   points). If it is missing, ask the user whether to download it (from the link in the README,
-   when one is given) or build it.
+   points). If it is missing, ask the user whether to download it or build it.
+   - Download (9.4 GB zip with the repo and the image), from the repository root:
+     `wget -O ATHENA_release.zip "https://zenodo.org/records/24096756/files/ATHENA_release_4f2e92c.zip?download=1"`, then
+     `unzip -j ATHENA_release.zip 'ATHENA/container/images/*' -d container/images/`,
+     `sha256sum -c container/images/athena_release.sif.sha256` (must print OK), `rm ATHENA_release.zip`.
    - Build: `mkdir -p container/logs && sbatch container/build_release.sh` on SLURM, `bash container/build_release.sh`
      elsewhere. It takes 1 to 2 hours and needs `--fakeroot` and about 60 GB of scratch; it never
      overwrites an image and writes `athena_release.sif.sha256` next to it.
@@ -91,7 +94,8 @@ Check, in this order, and fix only what is missing:
    On a GPU node the first prints `python OK [CudaDevice(id=0)]`. Run it on a compute node, not a
    login node.
 5. **Large reference data**, only when a request needs it: `Burger_1000_5000.mat` (374 MB, for
-   `Viscous_Burgers_DeepONet`) is downloaded into `Documents/codes/Data/` from the link in the README.
+   `Viscous_Burgers_DeepONet`) is downloaded into `Documents/codes/Data/` from Zenodo:
+   `wget -O Documents/codes/Data/Burger_1000_5000.mat "https://zenodo.org/records/24096756/files/Burger_1000_5000.mat?download=1"`.
 
 ---
 
