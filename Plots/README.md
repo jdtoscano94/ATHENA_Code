@@ -74,8 +74,12 @@ the figure reproduces but the folder grows back to its original size.
 
 ## Notes
 
-- These are the only notebooks tracked in git (via a `!Plots/*.ipynb` exception
-  to the repo-wide `*.ipynb` ignore); their cell **outputs are stripped** to keep
-  diffs and size small, so a fresh checkout shows code only — run them to render.
+- The plotting notebooks are tracked through a `!Plots/*.ipynb` exception to the
+  repo-wide `*.ipynb` ignore (the example workflows under `Examples_*/` are tracked
+  too); their cell **outputs are stripped** to keep diffs and size small, so a fresh
+  checkout shows code only — run them to render.
+- The scripts and notebooks run in the orchestrator env (`athena`), except
+  `fig4_pinn_opus.py`, which imports JAX through the KdV reference helper and needs the
+  `NABLA_JAX` env (or the container's `$NABLA_PY`).
 - See the repo `README.md` → *Reproducing the paper figures* for the same
   workflow in context.

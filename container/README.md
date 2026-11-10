@@ -17,6 +17,7 @@ The Julia depot inside the image is precompiled for a portable CPU target and is
 ## Build
 
 ```bash
+mkdir -p container/logs                 # SLURM writes the build log here
 sbatch container/build_release.sh        # Oscar, from the repository root
 bash   container/build_release.sh        # any machine with apptainer and --fakeroot
 ```
@@ -25,9 +26,15 @@ The image goes to `container/images/athena_release.sif` with its `sha256`. A bui
 
 ## Run
 
+Use the launcher, from the repository root:
+
 ```bash
-apptainer exec --nv -B "$PWD" container/images/athena_release.sif \
-    bash -c 'cd '"$PWD"' && $ATHENA_PY run_athena.py <request.json> ...'
+bash Documents/Scripts/athena_box_run.sh <request.json> <team> <RUN_DIR> [run_athena.py options]
 ```
 
-`$ATHENA_PY` is the orchestrator's Python and `$NABLA_PY` the generated codes' Python; `julia` is on the `PATH` with the frozen project active.
+It sets up what a raw `apptainer exec` does not: the read-only repository and writable run
+folder, the API keys for the orchestrator only, Ollama Cloud for the utility roles, and
+`ATHENA_IN_BOX=1`, which tells the bridges to run the generated code in the same box instead of
+starting another container. See the main `README.md` ("Running ATHENA") for the options.
+
+Inside the image, `$ATHENA_PY` is the orchestrator's Python and `$NABLA_PY` the generated codes' Python; `julia` is on the `PATH` with the frozen project active.

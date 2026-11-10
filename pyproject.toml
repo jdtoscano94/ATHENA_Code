@@ -7,7 +7,7 @@ name = "crunch_llm"
 version = "0.1.0"
 description = "Project Athena LLM tools"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 dependencies = [
  # --- LLM & LangChain Dependencies ---
@@ -86,6 +86,10 @@ dependencies = [
 
     # --- Git tooling (only if you import it directly) ---
     "GitPython",
+
+    # --- Notebook display and PDF reports (imported by crunch_llm/code/utils.py) ---
+    "ipython",
+    "reportlab",
 
     # --- Vision (only if you import it directly) ---
     "torchvision",

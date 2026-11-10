@@ -2,7 +2,7 @@
 
 <img src="Agent_Framework.png" width="50%" alt="ATHENA Agent Framework">
 
-Progress in computational science depends on complex numerical workflows that must faithfully encode physical laws, yet translating conceptual insight into reliable code remains a major bottleneck. Although large language models can generate isolated code fragments, they lack the structured reasoning required to design, verify, and iteratively refine complete scientific pipelines. Here we introduce ATHENA, an agentic framework explicitly designed to emulate scientific research modeled as a knowledge-driven contextual bandit process. Its core loop separates conceptual policy from numerical realization through expert-derived conceptual scaffolding, enabling principled diagnosis, reformulation, and repair of computational strategies. Across scientific computing and scientific machine learning tasks, ATHENA autonomously discovers exact analytical solutions, constructs stable numerical solvers, diagnoses ill-posed formulations, and orchestrates hybrid symbolic–numeric workflows. Quantitatively, ATHENA exceeds expert-designed workflows, achieving superhuman accuracy and robustness on canonical benchmarks. By reframing computation as an object of agentic reasoning, the framework enables autonomous orchestration of heterogeneous algorithms across scientific domains.
+Progress in computational science depends on complex numerical workflows that must faithfully encode physical laws, yet translating conceptual insight into reliable code remains a major bottleneck. Although large language models can generate isolated code fragments, they lack the structured reasoning required to design, verify, and iteratively refine complete scientific pipelines. Here we introduce ATHENA, an agentic framework explicitly designed to emulate scientific research modeled as a knowledge-driven contextual bandit process. Its core loop separates conceptual policy from numerical realization through expert-derived conceptual scaffolding, enabling principled diagnosis, reformulation, and repair of computational strategies. Across scientific computing and scientific machine learning tasks, ATHENA autonomously derives and correctly applies exact analytical solutions, constructs stable numerical solvers, diagnoses ill-posed formulations, and orchestrates hybrid symbolic–numeric workflows. Quantitatively, ATHENA surpasses the accuracy of expert-authored reference solutions reported in the literature on canonical PIML benchmarks. By reframing computation as an object of agentic reasoning, our framework enables autonomous orchestration of heterogeneous algorithms across scientific domains.
 
 
 # Use a coding agent (highly encouraged)
@@ -62,6 +62,7 @@ Build it from the definition in `container/` (about 1 to 2 hours; needs Apptaine
 `--fakeroot` and about 60 GB of local scratch):
 
 ```bash
+mkdir -p container/logs              # SLURM writes the build log here
 sbatch container/build_release.sh     # on a SLURM cluster, from the repository root
 bash   container/build_release.sh     # on any machine with apptainer
 ```
@@ -149,7 +150,7 @@ sets this for you).
 
 | Option | Effect |
 |---|---|
-| `--team T` | agent team: `original` (the published team, default, families A, B and C), `open` (open-weight models on Ollama Cloud, families A and B) or `closed` (original team with its utility roles on Gemini 3.1 Pro, families A and B) |
+| `--team T` | agent team: `original` (the paper's team allocation with current model versions, default, families A, B and C), `open` (open-weight models on Ollama Cloud, families A and B) or `closed` (original team with its utility roles on Gemini 3.1 Pro, families A and B) |
 | `--runs N` | repeat the whole pipeline `N` times (regret / variance analysis) |
 | `--max-iters N` | cap the HENA loop at `N` iterations per stage (quick test) |
 | `--stage N` | run only pipeline stage `N` |
@@ -217,9 +218,9 @@ JULIA_CPU_TARGET='generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1)
 export ATHENA_EXEC=host ATHENA_CONDA_ENV=NABLA_JAX ATHENA_JULIA_ENV=$PWD/container/julia
 ```
 
-With micromamba or a plain `venv` instead of conda, create the two envs the same way (Python 3.12,
-the same `pip install` lines) and set `ATHENA_CONDA_ENV` to the path of the `NABLA_JAX` env folder;
-the bridge then uses it directly, with no conda needed.
+**No conda?** If you use micromamba or a plain `venv`, create the two envs with Python 3.12 and the
+same `pip install` lines, and set `ATHENA_CONDA_ENV` to the path of the `NABLA_JAX` env folder. The
+bridge then uses it directly.
 
 Check the setup with the bridge test of step 4 under Installation. Then activate `athena_env` and
 launch runs with `run_athena.py` (option B); `athena_box_run.sh` needs the container.
@@ -283,7 +284,7 @@ The teams shipped in `crunch_llm/code/HENA.py` (the `build_agents_*` factories, 
 
 | Team | Generation models | Embeddings |
 |---|---|---|
-| `original` (published) | Gemini, GPT, Claude and Grok in the reasoning roles; `gpt-oss:120b` in the utility roles (retriever, parsers, patcher, naming) | `models/gemini-embedding-001` (`google`) |
+| `original` (the paper's allocation) | Gemini 3.1 Pro, GPT-5.4, Claude Sonnet 4.6 and Grok 4.1 Fast in the reasoning roles (family C: Gemini 3.1 Pro and Gemini 3 Flash); `gpt-oss:120b` in the utility roles (retriever, parsers, patcher, naming) | `models/gemini-embedding-001` (`google`) |
 | `open` | open-weight models on Ollama Cloud (`OPEN_TEAM` in `HENA.py`) | same |
 | `closed` | the original team with its `gpt-oss:120b` roles on Gemini 3.1 Pro | same |
 
@@ -356,15 +357,22 @@ This uses the cloud-API defaults (analyzer `gemini-3-flash-preview`, embeddings
 
 ```bash
 python Ingestion/ingest.py --class pinns \
-    --model gemini-3-flash-preview \      # analyzer LLM
-    --provider google \                   # analyzer provider
-    --embed-provider google \             # embeddings provider (google | openai | ollama)
-    --embed-model models/gemini-embedding-001 \
-    --path Documents/codes/SciML/PINNs \  # override the source dir/file
-    --db-path Documents/database_PIML \   # override the DB location
-    --collection PINNs_Codes \            # override the collection name
-    --clear                               # wipe the collection before ingesting
+    --model gemini-3-flash-preview --provider google \
+    --embed-provider google --embed-model models/gemini-embedding-001 \
+    --path Documents/codes/SciML/PINNs \
+    --db-path Documents/database_PIML \
+    --collection PINNs_Codes \
+    --clear
 ```
+
+| Flag | Meaning |
+|---|---|
+| `--model`, `--provider` | analyzer LLM and its provider |
+| `--embed-provider`, `--embed-model` | embeddings provider (`google`, `openai` or `ollama`) and model |
+| `--path` | override the source dir/file |
+| `--db-path` | override the DB location |
+| `--collection` | override the collection name |
+| `--clear` | wipe the collection before ingesting |
 
 > **Re-ingesting:** a second run **appends** to the collection. Pass `--clear` to rebuild
 > cleanly, or `--clear-only` to just empty a collection. If you change the **embedding
@@ -455,9 +463,9 @@ There are **two ways to run a problem**, suited to different situations:
 >   `run_hena` directly, seeded with a hand-written `user_question`. It shows the inner HENA
 >   loop in isolation — strategy → retrieval → implementation → execution → advising — for a
 >   problem you already understand.
-> * **Autonomous (full end-to-end).** `run_athena.py` runs the *entire* pipeline hands-off,
->   **including the Conceptualization stage**: the request JSON frames the physics, picks the
->   family, and feeds the HENA loop, which then climbs the escalation ladder and **self-terminates**
+> * **Autonomous (full end-to-end).** `run_athena.py` runs the pipeline hands-off from a
+>   request JSON written beforehand by the Conceptualization stage (`Formalize.py` or a coding
+>   agent): the JSON frames the physics, picks the family, and feeds the HENA loop, which then climbs the escalation ladder and **self-terminates**
 >   on `APPROVED`. This is the complete agentic story — conceptualization through final model.
 >
 > Both reach **comparable accuracy** (the operator solves the full 2D space-time field
@@ -783,13 +791,21 @@ software (Julia packages, Python packages, OpenCode) under their own licenses.
 
 ## A Note on Model Availability (deprecated model IDs)
 
-The example notebooks and the `build_agents_*` factories in `HENA.py` pin the **exact
-LLM versions used to produce the paper's results** (e.g. `gemini-3-pro-preview`,
-`gpt-5.1`, `claude-sonnet-4-5`, `grok-4-1-fast-reasoning`, with `gpt-oss:120b` and
-Google `text-embedding-004` for retrieval). These pins are deliberate — they are the
+The paper's main results were produced with the model allocation shown in its framework
+figure (e.g. `gemini-3-pro-preview`, `gpt-5.1`, `claude-sonnet-4-5`,
+`grok-4-1-fast-reasoning`, with `gpt-oss:120b` and Google `text-embedding-004` for
+retrieval). The example notebooks keep those IDs in their agent-setup cells as the
 provenance record of which models generated each figure.
 
-However, **LLM providers periodically retire model IDs**, especially *preview*
+Several of those models have since been retired, so the `build_agents_*` factories in
+`HENA.py` (used by `run_athena.py`) run the current versions of the same families:
+`gemini-3.1-pro-preview` instead of `gemini-3-pro-preview`, `gpt-5.4` instead of `gpt-5.1`,
+`claude-sonnet-4-6` instead of `claude-sonnet-4-5`, and `models/gemini-embedding-001`
+embeddings. These are the models of the paper's closed team in the model-sensitivity study
+(Methods, model allocation table); the `closed` team also moves the `gpt-oss:120b` utility
+roles to Gemini 3.1 Pro.
+
+**LLM providers periodically retire model IDs**, especially *preview*
 versions. A retired model surfaces as a run-time error such as:
 
 ```

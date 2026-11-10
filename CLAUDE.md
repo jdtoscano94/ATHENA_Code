@@ -60,7 +60,7 @@ Check, in this order, and fix only what is missing:
 2. **The container image** at `container/images/athena_release.sif` (or wherever `ATHENA_SIF`
    points). If it is missing, ask the user whether to download it (from the link in the README,
    when one is given) or build it.
-   - Build: `sbatch container/build_release.sh` on SLURM, `bash container/build_release.sh`
+   - Build: `mkdir -p container/logs && sbatch container/build_release.sh` on SLURM, `bash container/build_release.sh`
      elsewhere. It takes 1 to 2 hours and needs `--fakeroot` and about 60 GB of scratch; it never
      overwrites an image and writes `athena_release.sif.sha256` next to it.
    - The paper image has sha256 `7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7`.
@@ -196,7 +196,7 @@ existing run is refused unless `--resume` is given. Layout:
   box/           the box's home and writable Julia depot
 ```
 
-- **Team.** `original` (the published team) unless the user asks for another (options table below).
+- **Team.** `original` (the paper's team allocation, current model versions) unless the user asks for another (options table below).
 - **Where.** Families B and C need a GPU node; family A needs CPUs (Julia uses every core of the
   allocation). A run takes hours, so on SLURM submit it as a batch job that calls
   `athena_box_run.sh`, with the partition, GPU and time limit agreed with the user.
@@ -221,7 +221,7 @@ local Ollama server.
 
 | Option | Effect |
 |---|---|
-| `--team T` | `original` (published team, default, families A/B/C), `open` (open-weight models on Ollama Cloud, `OPEN_TEAM` in `HENA.py`, families A/B), `closed` (original team with its `gpt-oss:120b` utility roles on Gemini 3.1 Pro, families A/B) |
+| `--team T` | `original` (the paper's team allocation with current model versions, default, families A/B/C), `open` (open-weight models on Ollama Cloud, `OPEN_TEAM` in `HENA.py`, families A/B), `closed` (original team with its `gpt-oss:120b` utility roles on Gemini 3.1 Pro, families A/B) |
 | `--runs N` | repeat the whole pipeline N times |
 | `--max-iters N` | cap `max_iterations_all` (quick tests only) |
 | `--stage N` | run only pipeline stage N |
