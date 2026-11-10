@@ -58,9 +58,13 @@ cd ATHENA
 
 ## 2. Get the container image
 
+The container is a single 8.5 GB file, `container/images/athena_release.sif`. Every run uses
+this same file read-only, so it takes 8.5 GB on disk however many runs you launch.
+
 **Download it (recommended).** The Zenodo record [https://zenodo.org/records/24096756](https://zenodo.org/records/24096756) holds one zip (9.4 GB) with the
 repository at the paper's release commit and the image used for the paper. From the
-repository root, take the image out of the zip and check it:
+repository root, take the image out of the zip and check it (about 18 GB free until the zip is
+deleted, 8.5 GB after):
 
 ```bash
 wget -O ATHENA_release.zip "https://zenodo.org/records/24096756/files/ATHENA_release_4f2e92c.zip?download=1"
@@ -69,8 +73,10 @@ sha256sum -c container/images/athena_release.sif.sha256    # prints OK
 rm ATHENA_release.zip
 ```
 
-**Or build it** from the definition in `container/` (about 1 to 2 hours; needs Apptainer with
-`--fakeroot` and about 60 GB of local scratch):
+**Or build it** from the definition in `container/`. This takes about 1 to 2 hours and needs
+Apptainer with `--fakeroot`. While it runs, the build unpacks the environments on the node's local
+disk, so the script asks for 60 GB free there; this space is temporary and is freed when the
+8.5 GB image is written.
 
 ```bash
 mkdir -p container/logs              # SLURM writes the build log here

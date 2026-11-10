@@ -64,7 +64,7 @@ Check, in this order, and fix only what is missing:
      `unzip -j ATHENA_release.zip 'ATHENA/container/images/*' -d container/images/`,
      `sha256sum -c container/images/athena_release.sif.sha256` (must print OK), `rm ATHENA_release.zip`.
    - Build: `mkdir -p container/logs && sbatch container/build_release.sh` on SLURM, `bash container/build_release.sh`
-     elsewhere. It takes 1 to 2 hours and needs `--fakeroot` and about 60 GB of scratch; it never
+     elsewhere. It takes 1 to 2 hours and needs `--fakeroot` and 60 GB of free local disk while it builds (temporary; the image itself is 8.5 GB); it never
      overwrites an image and writes `athena_release.sif.sha256` next to it.
    - The paper image has sha256 `7dc4537f9c14bae42d4ae9f582bcaa92dd45a52e126c47a20746436030b030e7`.
    - Contents: Julia 1.11.9 with the frozen project in `container/julia/` (Trixi 0.13.15,
